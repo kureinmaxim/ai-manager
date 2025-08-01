@@ -1,0 +1,210 @@
+{% set card_header_style = 'style="background: linear-gradient(135deg, ' ~ (server.gradient_color or '#667eea') ~ ', ' ~ (server.gradient_color2 or '#4a5ab2') ~ '); color: white;"' %}
+<div class="card-header"
+     {{ card_header_style|safe }}>
+    <div class="d-flex align-items-center justify-content-between">
+        <div class="d-flex align-items-center">
+            {% if server.icon_filename %}
+                <img src="{{ url_for('uploaded_file', filename=server.icon_filename) }}" alt="icon" class="me-2" style="width: 40px; height: 40px; object-fit: contain; border-radius: 4px;">
+            {% else %}
+                <i class="bi bi-robot me-2"></i>
+            {% endif %}
+            <h5 class="card-title mb-0">{{ server.name }}</h5>
+        </div>
+        {% set circle_style = 'style="display:inline-block;width:22px;height:22px;background:' ~ (server.gradient_color or '#667eea') ~ ';border-color:#fff;box-shadow:0 0 0 2px rgba(0,0,0,0.08);"' %}
+        <span class="rounded-circle border border-2 ms-2" {{ circle_style|safe }}></span>
+    </div>
+    <div class="d-flex justify-content-between align-items-center mt-1">
+        <small>{{ server.provider or 'Не указан' }}</small>
+        {% if server.service_type %}
+        <span class="badge bg-light text-dark">{{ server.service_type }}</span>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card-body p-3">
+    <div class="row text-center border-bottom pb-3 mb-3">
+        <div class="col">
+            <small class="text-muted">Стоимость</small>
+            {% if server.subscription and server.subscription.cost_monthly %}
+            <div><strong>{% if server.subscription.currency == 'RUB' %}{{ "%.2f"|format(server.subscription.cost_monthly) }}{% else %}${{ "%.2f"|format(server.subscription.cost_monthly) }}{% endif %}</strong></div>
+            <small>{{ server.subscription.currency or 'USD' }} / {{ server.subscription.billing_cycle or 'месяц' }}</small>
+            {% else %}
+            <div><strong>Бесплатно</strong></div>
+            <small>или не указано</small>
+            {% endif %}
+        </div>
+        <div class="col">
+            <small class="text-muted">След. платёж</small>
+            {% if server.subscription and server.subscription.next_payment_date %}
+            <div><strong>{{ server.subscription.next_payment_date }}</strong></div>
+            {% else %}
+            <div><strong>N/A</strong></div>
+            {% endif %}
+        </div>
+        <div class="col">
+            <small class="text-muted">Статус</small>
+            <div>
+                {% set status_color = {
+                    'active': 'success', 
+                    'inactive': 'secondary', 
+                    'trial': 'info',
+                    'expired': 'danger', 
+                    'cancelled': 'warning'
+                }.get(server.status, 'secondary') %}
+                <span class="badge bg-{{ status_color }}">
+                    {% if server.status == 'active' %}Активен
+                    {% elif server.status == 'inactive' %}Неактивен  
+                    {% elif server.status == 'trial' %}Пробная версия
+                    {% elif server.status == 'expired' %}Истёк
+                    {% elif server.status == 'cancelled' %}Отменён
+                    {% else %}{{ server.status }}
+                    {% endif %}
+                </span>
+            </div>
+        </div>
+    </div>
+
+    {% if server.features %}
+    <div class="mb-3">
+        <small class="text-muted">Ключевые особенности:</small>
+        <div class="mt-1 d-flex flex-wrap gap-2">
+            {% set features_list = server.features.split(',') if server.features is string else server.features %}
+            {% for feature in features_list %}
+                {% set feature_clean = feature.strip() %}
+                {% set url_found = namespace(value=None) %}
+                {% set text_parts = [] %}
+                {% for part in feature_clean.split(' ') %}
+                    {% if part.startswith('http://') or part.startswith('https://') %}
+                        {% set url_found.value = part %}
+                    {% else %}
+                        {% do text_parts.append(part) %}
+                    {% endif %}
+                {% endfor %}
+                {% set link_text = text_parts | join(' ') %}
+                {% set display_text = link_text %}
+                {% if url_found.value %}
+                    {% set domain = url_found.value | regex_replace('^https?://', '') | replace('www.', '') | truncate(15, True, '…') %}
+                    {% set display_text = display_text + ' (' + domain + ')' %}
+                {% endif %}
+                <div class="feature-item" style="--feature-bg: {{ server.gradient_color or '#667eea' }};">
+                    {% if url_found.value %}
+                        <a href="{{ url_found.value|e }}" target="_blank" title="{{ url_found.value|e }}">
+                            {{ display_text }}
+                    </a>
+                {% else %}
+                        {{ feature_clean }}
+                    {% endif %}
+                    </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if server.login_url %}
+    <div class="row g-2 mb-3">
+        <div class="col-12">
+            <a href="{{ server.login_url }}" target="_blank" 
+               class="btn btn-sm btn-outline-primary w-100"
+               data-bs-toggle="tooltip" 
+               data-bs-placement="top"
+               title="Войти в сервис для использования">
+                <i class="bi bi-box-arrow-up-right"></i> Войти в сервис
+            </a>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="oauth-buttons mb-3">
+        <small class="text-muted d-block mb-2">Предпочитаемый способ входа:</small>
+        {% set selected_oauth = get_selected_oauth_method(server) %}
+        {% if selected_oauth %}
+        <a href="javascript:void(0)" 
+           class="btn-oauth {{ selected_oauth.class }}" 
+           title="OAuth авторизация" 
+           data-bs-toggle="tooltip"
+           data-bs-placement="top"
+           onclick="return false;">
+            {{ selected_oauth.icon }} {{ selected_oauth.name }}
+        </a>
+        {% endif %}
+    </div>
+
+    <div class="accordion accordion-flush" id="accordion-{{ server.id }}">
+        {% if server.credentials %}
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed py-2" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-credentials-{{ server.id }}">
+                    <i class="bi bi-key me-2"></i>Учетные данные
+                </button>
+            </h2>
+            <div id="collapse-credentials-{{ server.id }}" class="accordion-collapse collapse" data-bs-parent="#accordion-{{ server.id }}">
+            </div>
+            <div class="accordion-body py-2">
+                {% if selected_oauth %}
+                <div class="alert alert-info mb-3">
+                    <i class="bi bi-shield-check me-2"></i>
+                    <strong>OAuth авторизация:</strong> {{ selected_oauth.name }}<br>
+                    <small>Используйте email ниже для выбора аккаунта.</small>
+                </div>
+                {% endif %}
+                {% if server.credentials.username_decrypted %}
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <small>Email для входа:</small>
+                    <div class="input-group input-group-sm w-auto">
+                        <span class="form-control form-control-sm text-truncate">{{ server.credentials.username_decrypted }}</span>
+                        <button class="btn btn-outline-secondary" type="button" onclick="copyToClipboard(this, '{{ server.credentials.username_decrypted }}')"><i class="bi bi-clipboard"></i></button>
+                    </div>
+                </div>
+                {% endif %}
+                {% if not selected_oauth and server.credentials.password_decrypted %}
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <small>Пароль:</small>
+                    <div class="input-group input-group-sm w-auto">
+                        <span class="form-control form-control-sm text-truncate">••••••••</span>
+                        <button class="btn btn-outline-secondary" type="button" onclick="copyToClipboard(this, '{{ server.credentials.password_decrypted }}')"><i class="bi bi-clipboard"></i></button>
+                    </div>
+                </div>
+                {% endif %}
+                <div class="mb-3">
+                    <small class="text-muted">Дополнительная информация:</small>
+                    <pre class="additional-info-content mt-1">{% if server.credentials.additional_info_decrypted %}{{ server.credentials.additional_info_decrypted }}{% else %}<span class="text-muted">Нет дополнительной информации</span>{% endif %}</pre>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        {% if server.subscription %}
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed py-2" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-subscription-{{ server.id }}">
+                    <i class="bi bi-credit-card me-2"></i>Подписка
+                </button>
+            </h2>
+            <div id="collapse-subscription-{{ server.id }}" class="accordion-collapse collapse" data-bs-parent="#accordion-{{ server.id }}">
+                <div class="accordion-body py-2 subscription-details">
+                    {% if server.subscription.plan_name %}
+                    <p><strong>План:</strong> {{ server.subscription.plan_name }}</p>
+                    {% endif %}
+                    {% if server.subscription.cost_monthly %}
+                    <p><strong>Стоимость:</strong> {% if server.subscription.currency == 'RUB' %}{{ server.subscription.cost_monthly }}{% else %}${{ server.subscription.cost_monthly }}{% endif %} {{ server.subscription.currency or 'USD' }} / {{ server.subscription.billing_cycle or 'месяц' }}</p>
+                    <p><strong>В год:</strong> ~{% if server.subscription.currency == 'RUB' %}{{ (server.subscription.cost_monthly * 12)|round(2) }}{% else %}${{ (server.subscription.cost_monthly * 12)|round(2) }}{% endif %} {{ server.subscription.currency or 'USD' }}</p>
+                    {% endif %}
+                    {% if server.subscription.payment_method %}
+                    <p><strong>Способ оплаты:</strong> {{ server.subscription.payment_method }}</p>
+                    {% endif %}
+                    {% if server.subscription.auto_renewal %}
+                    <span class="badge bg-success">Автопродление включено</span>
+                    {% else %}
+                    <span class="badge bg-warning">Автопродление выключено</span>
+                    {% endif %}
+                    {% if server.subscription.notes %}
+                    <div class="mt-2">
+                        <small class="text-muted">Заметки:</small>
+                        <p class="small mt-1">{{ server.subscription.notes }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div> 

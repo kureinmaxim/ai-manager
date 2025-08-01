@@ -1,0 +1,91 @@
+{% extends "layout.html" %}
+
+{% block title %}Вход YubiKey - AI Manager{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-9 col-lg-6">
+            <div class="card shadow-lg">
+                <div class="card-body p-4">
+                    <div class="text-center mb-4">
+                        <img src="{{ url_for('static', filename='images/yubikey_logo.svg') }}" alt="YubiKey" height="40">
+                        <h3 class="mt-3">YubiKey Вход</h3>
+                        <p class="text-muted">Для доступа к приложению подтвердите ваш YubiKey.</p>
+                    </div>
+
+                    {% if is_online %}
+                    <div class="alert alert-info mb-4">
+                        <h6 class="alert-heading"><i class="bi bi-wifi me-2"></i>Онлайн-режим</h6>
+                        <ol class="mb-0 ps-3 small">
+                            <li>Вставьте YubiKey в USB-порт.</li>
+                            <li><b>Коротко коснитесь</b> золотого контакта на ключе.</li>
+                            <li>Код будет вставлен автоматически.</li>
+                        </ol>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-warning mb-4">
+                        <h6 class="alert-heading"><i class="bi bi-wifi-off me-2"></i>Офлайн-режим</h6>
+                        <ol class="mb-0 ps-3 small">
+                            <li>Интернет-соединение отсутствует.</li>
+                            <li>Для входа используйте <b>длинное нажатие</b> (2-3 сек) на YubiKey для ввода статического пароля.</li>
+                        </ol>
+                    </div>
+                    {% endif %}
+
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            {% for category, message in messages %}
+                                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                                    {{ message }}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+
+                    <form method="post">
+                        <div class="mb-3">
+                            <label for="otp" class="form-label">YubiKey OTP</label>
+                            <input type="text" name="otp" id="otp" class="form-control form-control-lg" placeholder="Нажмите кнопку на YubiKey" required autofocus maxlength="64">
+                        </div>
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary btn-lg">Войти</button>
+                        </div>
+                    </form>
+                    <div class="text-center mt-3">
+                        <a href="{{ url_for('yubikey_instructions') }}" class="text-muted small">Инструкция по настройке</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const otpInput = document.getElementById('otp');
+    
+    // Проверка формата при вводе
+    otpInput.addEventListener('keyup', function() {
+        const value = this.value;
+        // Разрешаем любой символ, так как статический пароль может быть сложным
+        const isValid = /^[a-zA-Z0-9!"#$%&'()*+,-./:;<=>?@\[\\\]^_`{|}~]{0,64}$/.test(value);
+        
+        if (value.length > 0 && !isValid) {
+            this.classList.add('is-invalid');
+        } else {
+            this.classList.remove('is-invalid');
+        }
+        
+        // Убираем подсветку 'is-valid', так как длина может быть разной
+            this.classList.remove('is-valid');
+    });
+    
+    // Фокус на поле ввода при загрузке страницы
+    otpInput.focus();
+});
+</script>
+{% endblock %} 

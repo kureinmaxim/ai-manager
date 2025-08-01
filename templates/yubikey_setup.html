@@ -1,0 +1,99 @@
+{% extends "layout.html" %}
+
+{% block title %}Настройка YubiKey - AI Manager{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow-lg border-0">
+                <div class="card-header bg-primary text-white text-center py-3">
+                    <h4 class="mb-0">
+                        <i class="bi bi-gear me-2"></i>
+                        Управление YubiKey
+                    </h4>
+                    {% if yubikey_auth.enabled %}
+                        <small class="text-light">
+                            <i class="bi bi-shield-check me-1"></i>
+                            Защита активна ({{ keys|length }} ключей)
+                        </small>
+                    {% else %}
+                        <small class="text-light">
+                            <i class="bi bi-shield me-1"></i>
+                            Защита отключена
+                        </small>
+                    {% endif %}
+                </div>
+                <div class="card-body p-4">
+                    
+                    <!-- Список существующих ключей -->
+                    {% if keys %}
+                    <div class="mb-4">
+                        <h5>Настроенные ключи ({{ keys|length }}):</h5>
+                        <div class="list-group">
+                            {% for key in keys %}
+                            <div class="list-group-item d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong>{{ key.name }}</strong>
+                                    <br>
+                                    <small class="text-muted">Client ID: {{ key.client_id[:10] }}...</small>
+                                    <br>
+                                    <small class="text-muted">Добавлен: {{ key.created_at[:10] }}</small>
+                                </div>
+                                <form method="POST" action="{{ url_for('yubikey_remove_key', key_index=loop.index0) }}"
+                                      onsubmit="return confirm('Удалить ключ &quot;{{ key.name }}&quot;?')" style="display: inline;">
+                                    <button type="submit" class="btn btn-outline-danger btn-sm">
+                                        <i class="bi bi-trash"></i> Удалить
+                                    </button>
+                                </form>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info mb-4">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>YubiKey не настроен</strong><br>
+                        Добавьте первый ключ для включения защиты приложения.
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Форма добавления нового ключа -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="mb-0">Добавить новый YubiKey</h6>
+                        </div>
+                        <div class="card-body">
+                            <form method="POST">
+                                <div class="mb-3">
+                                    <label for="key_name" class="form-label">Название ключа:</label>
+                                    <input type="text" class="form-control" id="key_name" name="key_name" 
+                                           placeholder="Например: Основной ключ, Резервный ключ">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="client_id" class="form-label fw-bold">Yubico Client ID:</label>
+                                    <input type="text" class="form-control" id="client_id" name="client_id" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="secret_key" class="form-label fw-bold">Yubico Secret Key:</label>
+                                    <input type="text" class="form-control" id="secret_key" name="secret_key" required>
+                                </div>
+                                <div class="d-grid gap-2">
+                                    <button type="submit" class="btn btn-success">
+                                        <i class="bi bi-plus-circle me-2"></i>
+                                        Добавить ключ
+                                    </button>
+                                    <a href="{{ url_for('yubikey_instructions') }}" class="btn btn-outline-secondary">
+                                        <i class="bi bi-info-circle me-2"></i>
+                                        Как получить ключи Yubico?
+                                    </a>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

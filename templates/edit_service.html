@@ -1,0 +1,435 @@
+{% extends "layout.html" %}
+
+
+<script>
+// Функция для обновления OAuth методов
+function updateOAuthMethods() {
+    const serviceName = document.getElementById('name').value;
+    const select = document.getElementById('preferred_oauth_method');
+    const currentValue = '{{ service.preferred_oauth_method if service.preferred_oauth_method else "" }}';
+    
+    // Очищаем текущие опции
+    select.innerHTML = '<option value="">Выберите способ входа...</option>';
+    
+    if (!serviceName) return;
+    
+    // Определяем доступные OAuth методы
+    const oauthMethods = getOAuthMethods(serviceName);
+    
+    // Добавляем опции
+    Object.entries(oauthMethods).forEach(([key, oauth]) => {
+        const option = document.createElement('option');
+        option.value = key;
+        option.textContent = `${oauth.icon} ${oauth.name}`;
+        option.selected = key === currentValue;
+        select.appendChild(option);
+    });
+}
+
+// Функция получения OAuth методов (упрощенная версия)
+function getOAuthMethods(serviceName) {
+    const methods = {};
+    
+    // Специфичные методы
+    const lowerName = serviceName.toLowerCase();
+    if (lowerName.includes('cursor')) {
+        methods.cursor = { name: 'Cursor Account', icon: '⚡' };
+    } else if (lowerName.includes('chatgpt') || lowerName.includes('openai')) {
+        methods.openai = { name: 'OpenAI Account', icon: '🤖' };
+    } else if (lowerName.includes('medium')) {
+        methods.medium = { name: 'Medium Account', icon: '📝' };
+    } else if (lowerName.includes('notion')) {
+        methods.notion = { name: 'Notion Account', icon: '📄' };
+    } else if (lowerName.includes('figma')) {
+        methods.figma = { name: 'Figma Account', icon: '🎨' };
+    }
+    
+    // Универсальные методы
+    methods.google = { name: 'Google', icon: '🔐' };
+    methods.apple = { name: 'Apple ID', icon: '🍎' };
+    methods.github = { name: 'GitHub', icon: '🐙' };
+    methods.microsoft = { name: 'Microsoft', icon: '🪟' };
+    
+    return methods;
+}
+
+// Обновляем методы при изменении имени сервиса
+document.getElementById('name').addEventListener('input', updateOAuthMethods);
+document.getElementById('name').addEventListener('change', updateOAuthMethods);
+
+// Инициализируем при загрузке
+document.addEventListener('DOMContentLoaded', updateOAuthMethods);
+</script>{% block title %}Редактировать AI-сервис{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1>Редактировать: {{ service.name }}</h1>
+    <hr>
+    <div class="row">
+        <div class="col-md-8">
+            <form action="{{ url_for('edit_service', service_id=service.id) }}" method="post" enctype="multipart/form-data" id="edit-service-form">
+                <h5 class="mt-4">Основная информация</h5>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="name" class="form-label">Название сервиса</label>
+                        <input type="text" class="form-control" id="name" name="name" value="{{ service.name }}" required>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="provider" class="form-label">Провайдер</label>
+                        <input type="text" class="form-control" id="provider" name="provider" value="{{ service.provider }}">
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="service_type" class="form-label">Тип сервиса</label>
+                        <select class="form-select" id="service_type" name="service_type" required>
+                            {% if schema and schema.service_types %}
+                                {% for service_type in schema.service_types %}
+                                    <option value="{{ service_type }}" {% if service.service_type == service_type %}selected{% endif %}>{{ service_type }}</option>
+                                {% endfor %}
+                            {% else %}
+                                <option value="AI Development Tool" {% if service.service_type == 'AI Development Tool' %}selected{% endif %}>AI Development Tool</option>
+                                <option value="AI Writing Assistant" {% if service.service_type == 'AI Writing Assistant' %}selected{% endif %}>AI Writing Assistant</option>
+                                <option value="AI Image Generator" {% if service.service_type == 'AI Image Generator' %}selected{% endif %}>AI Image Generator</option>
+                                <option value="AI Video Generator" {% if service.service_type == 'AI Video Generator' %}selected{% endif %}>AI Video Generator</option>
+                                <option value="Media Platform" {% if service.service_type == 'Media Platform' %}selected{% endif %}>Media Platform</option>
+                                <option value="Professional Network" {% if service.service_type == 'Professional Network' %}selected{% endif %}>Professional Network</option>
+                                <option value="Cloud Service" {% if service.service_type == 'Cloud Service' %}selected{% endif %}>Cloud Service</option>
+                                <option value="Productivity Tool" {% if service.service_type == 'Productivity Tool' %}selected{% endif %}>Productivity Tool</option>
+                            {% endif %}
+                        </select>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="status" class="form-label">Статус</label>
+                        <select class="form-select" id="status" name="status">
+                            <option value="active" {% if service.status == 'active' %}selected{% endif %}>Активен</option>
+                            <option value="inactive" {% if service.status == 'inactive' %}selected{% endif %}>Неактивен</option>
+                            <option value="trial" {% if service.status == 'trial' %}selected{% endif %}>Пробная версия</option>
+                            <option value="expired" {% if service.status == 'expired' %}selected{% endif %}>Истёк</option>
+                            <option value="cancelled" {% if service.status == 'cancelled' %}selected{% endif %}>Отменён</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label for="login_url" class="form-label">URL для входа</label>
+                    <input type="url" class="form-control" id="login_url" name="login_url" value="{{ service.login_url }}">
+                </div>
+                <div class="mb-3">
+                    <label for="preferred_oauth_method" class="form-label">Предпочитаемый способ входа</label>
+                    <select class="form-select" id="preferred_oauth_method" name="preferred_oauth_method">
+                        <option value="">Выберите способ входа...</option>
+                    </select>
+                    <div class="form-text">Выберите способ входа, который будет отображаться на карточке сервиса</div>                </div>
+
+                <div class="accordion" id="credentials-accordion">
+  <div class="accordion-item">
+    <h2 class="accordion-header" id="credentials-heading">
+      <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#credentials-collapse" aria-expanded="false" aria-controls="credentials-collapse">
+        <i class="bi bi-key me-2"></i>Учетные данные
+      </button>
+    </h2>
+    <div id="credentials-collapse" class="accordion-collapse collapse" aria-labelledby="credentials-heading" data-bs-parent="#credentials-accordion">
+      <div class="accordion-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="username" class="form-label">Имя пользователя/Email</label>
+                        <input type="text" class="form-control" id="username" name="username" value="{{ service.credentials.username }}">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="password" class="form-label">Новый пароль</label>
+                        <input type="password" class="form-control" id="password" name="password" aria-describedby="passwordHelp">
+                        <div id="passwordHelp" class="form-text">Оставьте пустым, чтобы не менять.</div>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label for="additional_info" class="form-label">Дополнительная информация для входа</label>
+                    <textarea class="form-control" id="additional_info" name="additional_info" rows="2">{{ service.credentials.additional_info }}</textarea>
+                </div>
+
+                </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h5 class="mt-4">Подписка и оплата</h5>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="plan_name" class="form-label">Название плана</label>
+                        <input type="text" class="form-control" id="plan_name" name="plan_name" value="{{ service.subscription.plan_name }}">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="cost_monthly" class="form-label">Стоимость в месяц</label>
+                        <input type="number" step="0.01" class="form-control" id="cost_monthly" name="cost_monthly" value="{{ service.subscription.cost_monthly }}">
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label for="currency" class="form-label">Валюта</label>
+                        <select class="form-select" id="currency" name="currency">
+                            <option value="USD" {% if service.subscription.currency == 'USD' %}selected{% endif %}>USD</option>
+                            <option value="EUR" {% if service.subscription.currency == 'EUR' %}selected{% endif %}>EUR</option>
+                            <option value="RUB" {% if service.subscription.currency == 'RUB' %}selected{% endif %}>RUB</option>
+                            <option value="GBP" {% if service.subscription.currency == 'GBP' %}selected{% endif %}>GBP</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="billing_cycle" class="form-label">Период оплаты</label>
+                        <select class="form-select" id="billing_cycle" name="billing_cycle">
+                            <option value="monthly" {% if service.subscription.billing_cycle == 'monthly' %}selected{% endif %}>Ежемесячно</option>
+                            <option value="quarterly" {% if service.subscription.billing_cycle == 'quarterly' %}selected{% endif %}>Ежеквартально</option>
+                            <option value="yearly" {% if service.subscription.billing_cycle == 'yearly' %}selected{% endif %}>Ежегодно</option>
+                            <option value="weekly" {% if service.subscription.billing_cycle == 'weekly' %}selected{% endif %}>Еженедельно</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="next_payment_date" class="form-label">Следующий платёж</label>
+                        <input type="date" class="form-control" id="next_payment_date" name="next_payment_date" value="{{ service.subscription.next_payment_date }}">
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="payment_method" class="form-label">Способ оплаты</label>
+                        <input type="text" class="form-control" id="payment_method" name="payment_method" value="{{ service.subscription.payment_method }}">
+                    </div>
+                    <div class="col-md-6 mb-3 d-flex align-items-end">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="auto_renewal" name="auto_renewal" {% if service.subscription.auto_renewal %}checked{% endif %}>
+                            <label class="form-check-label" for="auto_renewal">
+                                Автопродление
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label for="subscription_notes" class="form-label">Заметки по подписке</label>
+                    <textarea class="form-control" id="subscription_notes" name="subscription_notes" rows="2">{{ service.subscription.notes }}</textarea>
+                </div>
+
+                <h5 class="mt-4">Личный кабинет</h5>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="dashboard_url" class="form-label">URL панели управления</label>
+                        <input type="url" class="form-control" id="dashboard_url" name="dashboard_url" value="{{ service.personal_cabinet.dashboard_url }}">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="account_email" class="form-label">Email аккаунта</label>
+                        <input type="email" class="form-control" id="account_email" name="account_email" value="{{ service.personal_cabinet.account_email }}">
+                    </div>
+                </div>
+
+                <h5 class="mt-4">Возможности и настройки</h5>
+                 <div class="mb-3">
+                    <label for="features" class="form-label">Ключевые возможности (через запятую)</label>
+                    <textarea class="form-control" id="features" name="features" rows="3">{{ service.features | join(', ') }}</textarea>
+                    <div class="form-text">Введите возможности через запятую</div>
+                </div>
+
+                <h5 class="mt-4">Оформление</h5>
+                <div class="row align-items-center">
+                    <div class="col-md-6 mb-3">
+                        <label for="icon_filename" class="form-label">Иконка сервиса (заменит текущую)</label>
+                        <input class="form-control" type="file" id="icon_filename" name="icon_filename" accept="image/*">
+                        {% if service.icon_filename %}
+                        <div class="mt-2">
+                            <small>Текущая:</small>
+                            <img src="{{ url_for('uploaded_file', filename=service.icon_filename) }}" alt="icon" class="img-thumbnail" style="width: 40px; height: 40px; object-fit: contain; margin-left: 10px;">
+                    </div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="gradient_color" class="form-label">Цвет карточки</label>
+                        <div class="input-group">
+                            <input type="color" class="form-control form-control-color" id="gradient_color" name="gradient_color" 
+                                   value="{{ service.gradient_color or '#667eea' }}" 
+                                   title="Выберите основной цвет">
+                        </div>
+                    </div>
+                </div>
+
+                <script>
+                function generateGradient(baseColor) {
+                    // Преобразуем hex в RGB
+                    const hexToRgb = (hex) => {
+                        const bigint = parseInt(hex.slice(1), 16);
+                        const r = (bigint >> 16) & 255;
+                        const g = (bigint >> 8) & 255;
+                        const b = bigint & 255;
+                        return [r, g, b];
+                    };
+
+                    // Создаем более темный или светлый оттенок
+                    const adjustColor = (rgb, factor) => {
+                        return rgb.map(channel => 
+                            Math.min(255, Math.max(0, Math.round(channel * factor)))
+                        );
+                    };
+
+                    // Преобразуем RGB обратно в hex
+                    const rgbToHex = (rgb) => {
+                        return '#' + rgb.map(x => {
+                            const hex = x.toString(16);
+                            return hex.length === 1 ? '0' + hex : hex;
+                        }).join('');
+                    };
+
+                    // Создаем градиент
+                    const rgb = hexToRgb(baseColor);
+                    const darkerRgb = adjustColor(rgb, 0.7);  // Темнее
+                    const lighterRgb = adjustColor(rgb, 1.3); // Светлее
+
+                    return {
+                        color1: baseColor,
+                        color2: rgbToHex(darkerRgb)
+                    };
+                }
+                </script>
+
+                <h5 class="mt-4">Дополнительная информация</h5>
+                <div class="mb-3">
+                    <label for="notes" class="form-label">Заметки</label>
+                    <textarea class="form-control" id="notes" name="notes" rows="3">{{ service.notes }}</textarea>
+                </div>
+                
+                <button type="submit" class="btn btn-primary mt-3">Сохранить изменения</button>
+                <a href="{{ url_for('index') }}" class="btn btn-secondary mt-3">Отмена</a>
+            </form>
+        </div>
+        <div class="col-md-4">
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="mb-0">📊 Информация о сервисе</h5>
+                </div>
+                <div class="card-body">
+                    {% if service.created_at %}
+                    <p><strong>Создан:</strong> {{ service.created_at | format_datetime }}</p>
+                    {% endif %}
+                    {% if service.updated_at %}
+                    <p><strong>Обновлён:</strong> {{ service.updated_at | format_datetime }}</p>
+                    {% endif %}
+                    
+                    <hr>
+                    
+                    <div class="alert alert-info" role="alert">
+                        <strong>💡 Совет:</strong> Регулярно обновляйте дату следующего платежа для отслеживания расходов
+                    </div>
+                    
+                    {% if service.subscription.cost_monthly %}
+                    <div class="alert alert-success" role="alert">
+                        <strong>💰 Стоимость:</strong> 
+                        ~{{ (service.subscription.cost_monthly * 12) | round(2) }} {{ service.subscription.currency }} в год
+                            </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Функция для обновления OAuth методов
+document.addEventListener('DOMContentLoaded', updateOAuthMethods);
+</script>{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Валидация URL
+    const urlFields = ['login_url', 'dashboard_url'];
+    urlFields.forEach(fieldName => {
+        const field = document.getElementById(fieldName);
+        if (field) {
+            field.addEventListener('blur', function() {
+                if (this.value && !this.value.startsWith('http')) {
+                    this.value = 'https://' + this.value;
+                }
+            });
+        }
+    });
+
+    // Подсчет стоимости в год
+    const costField = document.getElementById('cost_monthly');
+    const cycleField = document.getElementById('billing_cycle');
+    
+    function updateYearlyCost() {
+        const monthlyCost = parseFloat(costField.value) || 0;
+        const cycle = cycleField.value;
+        let yearlyCost = 0;
+        
+        switch(cycle) {
+            case 'weekly': yearlyCost = monthlyCost * 52; break;
+            case 'monthly': yearlyCost = monthlyCost * 12; break;
+            case 'quarterly': yearlyCost = monthlyCost * 4; break;
+            case 'yearly': yearlyCost = monthlyCost; break;
+        }
+        
+        if (yearlyCost > 0) {
+            costField.title = `Примерно ${yearlyCost.toFixed(2)} в год`;
+        }
+    }
+    
+    if (costField && cycleField) {
+        costField.addEventListener('input', updateYearlyCost);
+        cycleField.addEventListener('change', updateYearlyCost);
+        updateYearlyCost(); // Первоначальный расчет
+    }
+});
+</script>
+
+<script>
+// Функция для обновления OAuth методов
+function updateOAuthMethods() {
+    const serviceName = document.getElementById('name').value;
+    const select = document.getElementById('preferred_oauth_method');
+    const currentValue = '{{ service.preferred_oauth_method if service.preferred_oauth_method else "" }}';
+    
+    // Очищаем текущие опции
+    select.innerHTML = '<option value="">Выберите способ входа...</option>';
+    
+    if (!serviceName) return;
+    
+    // Определяем доступные OAuth методы
+    const oauthMethods = getOAuthMethods(serviceName);
+    
+    // Добавляем опции
+    Object.entries(oauthMethods).forEach(([key, oauth]) => {
+        const option = document.createElement('option');
+        option.value = key;
+        option.textContent = `${oauth.icon} ${oauth.name}`;
+        option.selected = key === currentValue;
+        select.appendChild(option);
+    });
+}
+
+// Функция получения OAuth методов (упрощенная версия)
+function getOAuthMethods(serviceName) {
+    const methods = {};
+    
+    // Специфичные методы
+    const lowerName = serviceName.toLowerCase();
+    if (lowerName.includes('cursor')) {
+        methods.cursor = { name: 'Cursor Account', icon: '⚡' };
+    } else if (lowerName.includes('chatgpt') || lowerName.includes('openai')) {
+        methods.openai = { name: 'OpenAI Account', icon: '🤖' };
+    } else if (lowerName.includes('medium')) {
+        methods.medium = { name: 'Medium Account', icon: '📝' };
+    } else if (lowerName.includes('notion')) {
+        methods.notion = { name: 'Notion Account', icon: '📄' };
+    } else if (lowerName.includes('figma')) {
+        methods.figma = { name: 'Figma Account', icon: '🎨' };
+    }
+    
+    // Универсальные методы
+    methods.google = { name: 'Google', icon: '🔐' };
+    methods.apple = { name: 'Apple ID', icon: '🍎' };
+    methods.github = { name: 'GitHub', icon: '🐙' };
+    methods.microsoft = { name: 'Microsoft', icon: '🪟' };
+    
+    return methods;
+}
+
+// Обновляем методы при изменении имени сервиса
+document.getElementById('name').addEventListener('input', updateOAuthMethods);
+document.getElementById('name').addEventListener('change', updateOAuthMethods);
+
+// Инициализируем при загрузке

@@ -1,0 +1,11 @@
+{
+  "keys": [
+    {
+      "client_id": "your-client-id-here",
+      "secret_key": "your-secret-key-here",
+      "name": "Default Key",
+      "created_at": "2025-07-31T00:00:00.000000"
+    }
+  ],
+  "enabled": true
+}

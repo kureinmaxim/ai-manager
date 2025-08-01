@@ -1,0 +1,108 @@
+{% extends "layout.html" %}
+
+{% block title %}Инструкции по настройке YubiKey - AI Manager{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="bi bi-gear-wide-connected me-2"></i>
+                        Настройка YubiKey Аутентификации
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="accordion" id="yubikeyInstructionsAccordion">
+
+                        <!-- Инструкция для Онлайн-режима -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="headingOnline">
+                                <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOnline" aria-expanded="true" aria-controls="collapseOnline">
+                                    <i class="bi bi-wifi me-2"></i><strong>Шаг 1: Получение ключей для Онлайн-режима (OTP)</strong>
+                                </button>
+                            </h2>
+                            <div id="collapseOnline" class="accordion-collapse collapse show" aria-labelledby="headingOnline" data-bs-parent="#yubikeyInstructionsAccordion">
+                                <div class="accordion-body">
+                                    <p class="text-muted">Этот шаг необходим для основной, самой безопасной онлайн-аутентификации.</p>
+                                    <ol class="list-group list-group-numbered">
+                        <li class="list-group-item">
+                                            <strong>Откройте ссылку в браузере:</strong> 
+                                            <a href="https://upgrade.yubico.com/getapikey/" target="_blank">https://upgrade.yubico.com/getapikey/</a>
+                        </li>
+                        <li class="list-group-item">
+                                            <strong>Введите ваш email</strong>, вставьте YubiKey и коснитесь его, когда попросят.
+                        </li>
+                        <li class="list-group-item">
+                                            <strong>Согласитесь с условиями</strong> и нажмите "Get API Key".
+                        </li>
+                        <li class="list-group-item">
+                            <strong>Скопируйте полученные ключи:</strong>
+                            <ul class="mt-2">
+                                                <li><strong>Client ID:</strong> (число, например: 12345)</li>
+                                                <li><strong>Secret Key:</strong> (строка, например: abcdefghijklmnop=)</li>
+                            </ul>
+                        </li>
+                        <li class="list-group-item">
+                                            <strong>Вернитесь в приложение</strong> и вставьте эти ключи в форму настройки.
+                                        </li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Инструкция для Офлайн-режима -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="headingOffline">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOffline" aria-expanded="false" aria-controls="collapseOffline">
+                                    <i class="bi bi-wifi-off me-2"></i><strong>Шаг 2: Настройка статического пароля (для Офлайн-режима)</strong>
+                                </button>
+                            </h2>
+                            <div id="collapseOffline" class="accordion-collapse collapse" aria-labelledby="headingOffline" data-bs-parent="#yubikeyInstructionsAccordion">
+                                <div class="accordion-body">
+                                    <p class="text-muted">Это позволит входить в приложение без интернета. Настройте этот пароль на всех ваших ключах.</p>
+                                     <ol class="list-group list-group-numbered">
+                                        <li class="list-group-item">
+                                            <strong>Установите YubiKey Manager</strong> с официального сайта: 
+                                            <a href="https://www.yubico.com/support/download/yubikey-manager/" target="_blank">yubico.com/support/download</a>
+                                        </li>
+                                        <li class="list-group-item">
+                                            <strong>Откройте YubiKey Manager</strong>, вставьте ключ и перейдите в <strong>Applications -> OTP</strong>.
+                                        </li>
+                                        <li class="list-group-item">
+                                            Рекомендуется использовать второй слот. Нажмите <strong>Configure</strong> напротив <strong>Slot 2 (Long Touch)</strong>.
+                                        </li>
+                                        <li class="list-group-item">
+                                            Выберите тип учетных данных: <strong>Static Password</strong>.
+                                        </li>
+                                         <li class="list-group-item">
+                                            <strong>Сгенерируйте пароль:</strong> Нажмите кнопку с тремя стрелками (⟳) для генерации случайного пароля. Рекомендуемая длина - 32+ символа.
+                                         </li>
+                                        <li class="list-group-item">
+                                            <strong><i class="bi bi-exclamation-triangle-fill text-danger"></i> ВАЖНО: Скопируйте и надежно сохраните</strong> этот пароль. Он понадобится для файла `.env`.
+                                        </li>
+                                         <li class="list-group-item">
+                                            Нажмите <strong>Finish</strong> для записи на ключ.
+                                        </li>
+                                         <li class="list-group-item">
+                                            <strong>Добавьте сохраненный пароль</strong> в файл `.env` вашего проекта в переменную `YUBIKEY_STATIC_PASSWORDS`. Если паролей несколько, разделите их запятой.
+                        </li>
+                    </ol>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid gap-2 mt-4">
+                        <a href="{{ url_for('yubikey_setup') }}" class="btn btn-primary">
+                            <i class="bi bi-arrow-left me-2"></i>
+                            Вернуться к настройке
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

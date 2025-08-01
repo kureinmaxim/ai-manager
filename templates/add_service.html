@@ -1,0 +1,436 @@
+{% extends "layout.html" %}
+
+
+<script>
+// Функция для обновления OAuth методов
+function updateOAuthMethods() {
+    const serviceName = document.getElementById('name').value;
+    const select = document.getElementById('preferred_oauth_method');
+    
+    // Очищаем текущие опции
+    select.innerHTML = '<option value="">Выберите способ входа...</option>';
+    
+    if (!serviceName) return;
+    
+    // Определяем доступные OAuth методы
+    const oauthMethods = getOAuthMethods(serviceName);
+    
+    // Добавляем опции
+    Object.entries(oauthMethods).forEach(([key, oauth]) => {
+        const option = document.createElement('option');
+        option.value = key;
+        option.textContent = `${oauth.icon} ${oauth.name}`;
+        select.appendChild(option);
+    });
+}
+
+// Функция получения OAuth методов (упрощенная версия)
+function getOAuthMethods(serviceName) {
+    const methods = {};
+    
+    // Специфичные методы
+    const lowerName = serviceName.toLowerCase();
+    if (lowerName.includes('cursor')) {
+        methods.cursor = { name: 'Cursor Account', icon: '⚡' };
+    } else if (lowerName.includes('chatgpt') || lowerName.includes('openai')) {
+        methods.openai = { name: 'OpenAI Account', icon: '🤖' };
+    } else if (lowerName.includes('medium')) {
+        methods.medium = { name: 'Medium Account', icon: '📝' };
+    } else if (lowerName.includes('notion')) {
+        methods.notion = { name: 'Notion Account', icon: '📄' };
+    } else if (lowerName.includes('figma')) {
+        methods.figma = { name: 'Figma Account', icon: '🎨' };
+    }
+    
+    // Универсальные методы
+    methods.google = { name: 'Google', icon: '🔐' };
+    methods.apple = { name: 'Apple ID', icon: '🍎' };
+    methods.github = { name: 'GitHub', icon: '🐙' };
+    methods.microsoft = { name: 'Microsoft', icon: '🪟' };
+    
+    return methods;
+}
+
+// Обновляем методы при изменении имени сервиса
+document.getElementById('name').addEventListener('input', updateOAuthMethods);
+document.getElementById('name').addEventListener('change', updateOAuthMethods);
+
+// Инициализируем при загрузке
+document.addEventListener('DOMContentLoaded', updateOAuthMethods);
+</script>{% block title %}Добавить AI-сервис{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1>Добавить новый AI-сервис</h1>
+    <hr>
+    <div class="row">
+        <div class="col-md-8">
+            <form action="{{ url_for('add_service') }}" method="post" enctype="multipart/form-data">
+                <h5 class="mt-4">Основная информация</h5>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="name" class="form-label">Название сервиса</label>
+                        <input type="text" class="form-control" id="name" name="name" required placeholder="Например, ChatGPT Plus">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="provider" class="form-label">Провайдер</label>
+                        <input type="text" class="form-control" id="provider" name="provider" placeholder="Например, OpenAI">
+                    </div>
+                </div>
+                 <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="service_type" class="form-label">Тип сервиса</label>
+                        <select class="form-select" id="service_type" name="service_type" required>
+                            <option value="">Выберите тип</option>
+                            {% if schema and schema.service_types %}
+                                {% for service_type in schema.service_types %}
+                                    <option value="{{ service_type }}">{{ service_type }}</option>
+                                {% endfor %}
+                            {% else %}
+                                <option value="AI Development Tool">AI Development Tool</option>
+                                <option value="AI Writing Assistant">AI Writing Assistant</option>
+                                <option value="AI Image Generator">AI Image Generator</option>
+                                <option value="AI Video Generator">AI Video Generator</option>
+                                <option value="Media Platform">Media Platform</option>
+                                <option value="Professional Network">Professional Network</option>
+                                <option value="Cloud Service">Cloud Service</option>
+                                <option value="Productivity Tool">Productivity Tool</option>
+                            {% endif %}
+                        </select>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="status" class="form-label">Статус</label>
+                        <select class="form-select" id="status" name="status">
+                            <option value="active" selected>Активен</option>
+                            <option value="inactive">Неактивен</option>
+                            <option value="trial">Пробная версия</option>
+                            <option value="expired">Истёк</option>
+                            <option value="cancelled">Отменён</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label for="login_url" class="form-label">URL для входа</label>
+                    <input type="url" class="form-control" id="login_url" name="login_url" placeholder="https://chatgpt.com/login">
+                </div>
+                <div class="mb-3">
+                    <label for="preferred_oauth_method" class="form-label">Предпочитаемый способ входа</label>
+                    <select class="form-select" id="preferred_oauth_method" name="preferred_oauth_method">
+                        <option value="">Выберите способ входа...</option>
+                    </select>
+                    <div class="form-text">Выберите способ входа, который будет отображаться на карточке сервиса</div>                </div>
+
+                <div class="accordion" id="credentials-accordion">
+  <div class="accordion-item">
+    <h2 class="accordion-header" id="credentials-heading">
+      <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#credentials-collapse" aria-expanded="false" aria-controls="credentials-collapse">
+        <i class="bi bi-key me-2"></i>Учетные данные
+      </button>
+    </h2>
+    <div id="credentials-collapse" class="accordion-collapse collapse" aria-labelledby="credentials-heading" data-bs-parent="#credentials-accordion">
+      <div class="accordion-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="username" class="form-label">Имя пользователя/Email</label>
+                        <input type="text" class="form-control" id="username" name="username" placeholder="user@example.com">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="password" class="form-label">Пароль</label>
+                        <input type="password" class="form-control" id="password" name="password">
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label for="additional_info" class="form-label">Дополнительная информация для входа</label>
+                    <textarea class="form-control" id="additional_info" name="additional_info" rows="2" placeholder="API ключи, токены, двухфакторная аутентификация и т.д."></textarea>
+                </div>
+
+                </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h5 class="mt-4">Подписка и оплата</h5>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="plan_name" class="form-label">Название плана</label>
+                        <input type="text" class="form-control" id="plan_name" name="plan_name" placeholder="Pro Plan, Plus, Premium">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="cost_monthly" class="form-label">Стоимость в месяц</label>
+                        <input type="number" step="0.01" class="form-control" id="cost_monthly" name="cost_monthly" placeholder="20.00">
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label for="currency" class="form-label">Валюта</label>
+                        <select class="form-select" id="currency" name="currency">
+                            <option value="USD" selected>USD</option>
+                            <option value="EUR">EUR</option>
+                            <option value="RUB">RUB</option>
+                            <option value="GBP">GBP</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="billing_cycle" class="form-label">Период оплаты</label>
+                        <select class="form-select" id="billing_cycle" name="billing_cycle">
+                            <option value="monthly" selected>Ежемесячно</option>
+                            <option value="quarterly">Ежеквартально</option>
+                            <option value="yearly">Ежегодно</option>
+                            <option value="weekly">Еженедельно</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="next_payment_date" class="form-label">Следующий платёж</label>
+                        <input type="date" class="form-control" id="next_payment_date" name="next_payment_date">
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="payment_method" class="form-label">Способ оплаты</label>
+                        <input type="text" class="form-control" id="payment_method" name="payment_method" placeholder="Credit Card, PayPal, Bank Transfer">
+                    </div>
+                    <div class="col-md-6 mb-3 d-flex align-items-end">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="auto_renewal" name="auto_renewal" checked>
+                            <label class="form-check-label" for="auto_renewal">
+                                Автопродление
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label for="subscription_notes" class="form-label">Заметки по подписке</label>
+                    <textarea class="form-control" id="subscription_notes" name="subscription_notes" rows="2" placeholder="Особенности тарифа, лимиты, промокоды"></textarea>
+                </div>
+
+                <h5 class="mt-4">Личный кабинет</h5>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="dashboard_url" class="form-label">URL панели управления</label>
+                        <input type="url" class="form-control" id="dashboard_url" name="dashboard_url" placeholder="https://platform.openai.com/dashboard">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="account_email" class="form-label">Email аккаунта</label>
+                        <input type="email" class="form-control" id="account_email" name="account_email" placeholder="account@example.com">
+                    </div>
+                </div>
+
+                <h5 class="mt-4">Возможности и настройки</h5>
+                <div class="mb-3">
+                    <label for="features" class="form-label">Ключевые возможности</label>
+                    <textarea class="form-control" id="features" name="features" rows="3" placeholder="Перечислите основные функции через запятую (например: AI Code Completion, Chat with Codebase, Command Palette AI)"></textarea>
+                    <div class="form-text">Введите возможности через запятую</div>
+                </div>
+
+                <h5 class="mt-4">Оформление</h5>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="icon_filename" class="form-label">Иконка сервиса</label>
+                        <input class="form-control" type="file" id="icon_filename" name="icon_filename" accept="image/*">
+                    </div>
+                </div>
+
+                <h5 class="mt-4">Дополнительная информация</h5>
+                 <div class="mb-3">
+                    <label for="notes" class="form-label">Заметки</label>
+                    <textarea class="form-control" id="notes" name="notes" rows="3" placeholder="Общие заметки, особенности использования, полезные ссылки"></textarea>
+                </div>
+                
+                <button type="submit" class="btn btn-primary mt-3">Сохранить AI-сервис</button>
+                <a href="{{ url_for('index') }}" class="btn btn-secondary mt-3">Отмена</a>
+            </form>
+        </div>
+        <div class="col-md-4">
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="mb-0">💡 Полезные советы</h5>
+                </div>
+                <div class="card-body">
+                    <h6 class="text-primary">🤖 AI Development Tools</h6>
+                    <small class="text-muted">Cursor, GitHub Copilot, Tabnine</small>
+                    <hr>
+                    
+                    <h6 class="text-success">✍️ AI Writing Assistants</h6>
+                    <small class="text-muted">ChatGPT, Claude, Jasper AI</small>
+                    <hr>
+
+                    <h6 class="text-warning">🎨 AI Image/Video</h6>
+                    <small class="text-muted">Midjourney, DALL-E, Runway</small>
+                    <hr>
+                    
+                    <h6 class="text-info">📱 Media & Social</h6>
+                    <small class="text-muted">Medium, LinkedIn Premium, Substack</small>
+                    <hr>
+                    
+                    <div class="alert alert-light" role="alert">
+                        <strong>💡 Совет:</strong> Для API-ключей используйте поле "Дополнительная информация для входа"
+                    </div>
+
+                    <div class="alert alert-warning" role="alert">
+                        <strong>🔐 Безопасность:</strong> Все пароли автоматически шифруются при сохранении
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Функция для обновления OAuth методов
+</script>{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Автозаполнение для популярных сервисов
+    const servicePresets = {
+        'ChatGPT Plus': {
+            provider: 'OpenAI',
+            service_type: 'AI Writing Assistant',
+            login_url: 'https://chatgpt.com/',
+            dashboard_url: 'https://platform.openai.com/dashboard',
+            cost_monthly: 20,
+            currency: 'USD',
+            features: 'Advanced AI Conversations, GPT-4 Access, Priority Access'
+        },
+        'Cursor AI': {
+            provider: 'Anysphere Inc',
+            service_type: 'AI Development Tool',
+            login_url: 'https://cursor.sh/login',
+            dashboard_url: 'https://cursor.sh/dashboard',
+            cost_monthly: 20,
+            currency: 'USD',
+            features: 'AI Code Completion, Chat with Codebase, Command Palette AI'
+        },
+        'Medium': {
+            provider: 'Medium',
+            service_type: 'Media Platform',
+            login_url: 'https://medium.com/signin',
+            dashboard_url: 'https://medium.com/me/settings',
+            cost_monthly: 349,
+            currency: 'RUB',
+            features: 'Unlimited Reading, Member-only Stories, Creator Tools'
+        }
+    };
+
+    const nameField = document.getElementById('name');
+    nameField.addEventListener('blur', function() {
+        const serviceName = this.value;
+        if (servicePresets[serviceName]) {
+            const preset = servicePresets[serviceName];
+            
+            // Автозаполнение только пустых полей
+            Object.keys(preset).forEach(key => {
+                const field = document.getElementById(key) || document.getElementsByName(key)[0];
+                if (field && !field.value) {
+                    field.value = preset[key];
+                }
+            });
+        }
+    });
+
+    // Валидация URL
+    const urlFields = ['login_url', 'dashboard_url'];
+    urlFields.forEach(fieldName => {
+        const field = document.getElementById(fieldName);
+        if (field) {
+            field.addEventListener('blur', function() {
+                if (this.value && !this.value.startsWith('http')) {
+                    this.value = 'https://' + this.value;
+                }
+            });
+        }
+    });
+
+    // Подсчет стоимости в год
+    const costField = document.getElementById('cost_monthly');
+    const cycleField = document.getElementById('billing_cycle');
+    const currencyField = document.getElementById('currency');
+    
+    function updateYearlyCost() {
+        const monthlyCost = parseFloat(costField.value) || 0;
+        const cycle = cycleField.value;
+        const currency = currencyField ? currencyField.value : 'USD';
+        let yearlyCost = 0;
+        
+        switch(cycle) {
+            case 'weekly': yearlyCost = monthlyCost * 52; break;
+            case 'monthly': yearlyCost = monthlyCost * 12; break;
+            case 'quarterly': yearlyCost = monthlyCost * 4; break;
+            case 'yearly': yearlyCost = monthlyCost; break;
+        }
+        
+        if (yearlyCost > 0) {
+            const currencySymbol = currency === 'RUB' ? '' : '$';
+            costField.title = `Примерно ${currencySymbol}${yearlyCost.toFixed(2)} в год`;
+        }
+    }
+    
+    if (costField && cycleField) {
+        costField.addEventListener('input', updateYearlyCost);
+        cycleField.addEventListener('change', updateYearlyCost);
+        if (currencyField) {
+            currencyField.addEventListener('change', updateYearlyCost);
+        }
+    }
+});
+</script>
+{% endblock %}
+
+<script>
+// Функция для обновления OAuth методов
+function updateOAuthMethods() {
+    const serviceName = document.getElementById('name').value;
+    const select = document.getElementById('preferred_oauth_method');
+    
+    // Очищаем текущие опции
+    select.innerHTML = '<option value="">Выберите способ входа...</option>';
+    
+    if (!serviceName) return;
+    
+    // Определяем доступные OAuth методы
+    const oauthMethods = getOAuthMethods(serviceName);
+    
+    // Добавляем опции
+    Object.entries(oauthMethods).forEach(([key, oauth]) => {
+        const option = document.createElement('option');
+        option.value = key;
+        option.textContent = `${oauth.icon} ${oauth.name}`;
+        select.appendChild(option);
+    });
+}
+
+// Функция получения OAuth методов (упрощенная версия)
+function getOAuthMethods(serviceName) {
+    const methods = {};
+    
+    // Специфичные методы
+    const lowerName = serviceName.toLowerCase();
+    if (lowerName.includes('cursor')) {
+        methods.cursor = { name: 'Cursor Account', icon: '⚡' };
+    } else if (lowerName.includes('chatgpt') || lowerName.includes('openai')) {
+        methods.openai = { name: 'OpenAI Account', icon: '🤖' };
+    } else if (lowerName.includes('medium')) {
+        methods.medium = { name: 'Medium Account', icon: '📝' };
+    } else if (lowerName.includes('notion')) {
+        methods.notion = { name: 'Notion Account', icon: '📄' };
+    } else if (lowerName.includes('figma')) {
+        methods.figma = { name: 'Figma Account', icon: '🎨' };
+    }
+    
+    // Универсальные методы
+    methods.google = { name: 'Google', icon: '🔐' };
+    methods.apple = { name: 'Apple ID', icon: '🍎' };
+    methods.github = { name: 'GitHub', icon: '🐙' };
+    methods.microsoft = { name: 'Microsoft', icon: '🪟' };
+    
+    return methods;
+}
+
+// Обновляем методы при изменении имени сервиса
+document.getElementById('name').addEventListener('input', updateOAuthMethods);
+document.getElementById('name').addEventListener('change', updateOAuthMethods);
+
+// Инициализируем при загрузке
+document.addEventListener('DOMContentLoaded', updateOAuthMethods);

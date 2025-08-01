@@ -1,0 +1,675 @@
+{% extends "layout.html" %}
+
+{% block title %}Справка - AI Manager{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1><i class="bi bi-question-circle"></i> Справка по работе с AI Manager</h1>
+    <hr>
+    
+    <div class="row">
+        <div class="col-lg-12">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    
+                    <h2 class="h4 text-primary">Первый запуск</h2>
+                    
+                    <div class="alert alert-success" role="alert">
+                        <i class="bi bi-check-circle me-2"></i>
+                        <strong>Пошаговая инструкция для первого запуска:</strong>
+                    </div>
+                    
+                    <ol>
+                        <li><strong>Запустите приложение</strong> - используйте команду <code>python3 run_app.py</code></li>
+                        <li><strong>Введите статический пароль</strong> - используйте один из паролей из файла .env</li>
+                        <li><strong>Настройте YubiKey</strong> (опционально) - для дополнительной безопасности</li>
+                        <li><strong>Добавьте первые AI сервисы</strong> - начните с добавления ваших сервисов</li>
+                    </ol>
+                    
+                    <hr>
+                    
+                    <h2 class="h4 text-primary">Основные команды</h2>
+                    
+                    <h3 class="h5 mt-4">1. Переход в директорию проекта</h3>
+                    <p>Прежде всего, вам нужно перейти в папку с проектом. Скопируйте и вставьте эту команду в терминал:</p>
+                    <div class="command-block bg-dark text-light p-3 rounded mb-3">
+                        <code>cd /path/to/your/project</code>
+                        <button class="btn btn-sm btn-outline-light copy-btn" onclick="copyCommand(this)"><i class="bi bi-clipboard"></i></button>
+                    </div>
+                    
+                    <h3 class="h5">2. Активация виртуального окружения</h3>
+                    <p>Для корректной работы приложения необходимо активировать виртуальное окружение.</p>
+                    <div class="command-block bg-dark text-light p-3 rounded mb-3">
+                        <code>source venv/bin/activate</code>
+                        <button class="btn btn-sm btn-outline-light copy-btn" onclick="copyCommand(this)"><i class="bi bi-clipboard"></i></button>
+                    </div>
+                    <p class="text-muted small">После активации вы увидите <code>(venv)</code> в начале строки терминала.</p>
+                    
+                    <h3 class="h5">3. Запуск приложения</h3>
+                    <p>После активации окружения, используйте одну из команд для запуска приложения:</p>
+                    <div class="command-block bg-dark text-light p-3 rounded mb-3">
+                        <code>python3 run_app.py</code>
+                        <button class="btn btn-sm btn-outline-light copy-btn" onclick="copyCommand(this)"><i class="bi bi-clipboard"></i></button>
+                    </div>
+                    <p class="text-muted small">GUI приложение (рекомендуется) - запускается в отдельном окне</p>
+                    <div class="command-block bg-dark text-light p-3 rounded mb-3">
+                        <code>python3 app.py</code>
+                        <button class="btn btn-sm btn-outline-light copy-btn" onclick="copyCommand(this)"><i class="bi bi-clipboard"></i></button>
+                    </div>
+                    <p class="text-muted small">Веб-интерфейс - затем откройте http://127.0.0.1:5050 в браузере</p>
+                    
+                    <hr>
+                    
+                    <h2 class="h4 text-primary">Единая команда для запуска</h2>
+                    <p>Вы можете объединить все шаги в одну команду для быстрого запуска:</p>
+                    <div class="command-block bg-dark text-light p-3 rounded mb-3">
+                        <code>cd /path/to/your/project && source venv/bin/activate && python3 run_app.py</code>
+                        <button class="btn btn-sm btn-outline-light copy-btn" onclick="copyCommand(this)"><i class="bi bi-clipboard"></i></button>
+                    </div>
+                    <p class="text-muted small">Для GUI приложения (рекомендуется)</p>
+                    <div class="command-block bg-dark text-light p-3 rounded mb-3">
+                        <code>cd /path/to/your/project && source venv/bin/activate && python3 app.py</code>
+                        <button class="btn btn-sm btn-outline-light copy-btn" onclick="copyCommand(this)"><i class="bi bi-clipboard"></i></button>
+                    </div>
+                    <p class="text-muted small">Для веб-интерфейса</p>
+                    
+                    <hr>
+                    
+                    <h2 class="h4 text-primary">Управление зависимостями</h2>
+                    
+                    <h3 class="h5">Установка новых пакетов</h3>
+                    <p>Если нужно установить дополнительные пакеты Python:</p>
+                    <div class="command-block bg-dark text-light p-3 rounded mb-3">
+                        <code>source venv/bin/activate && pip install название_пакета</code>
+                        <button class="btn btn-sm btn-outline-light copy-btn" onclick="copyCommand(this)"><i class="bi bi-clipboard"></i></button>
+                    </div>
+                    
+                    <h3 class="h5">Обновление списка зависимостей</h3>
+                    <p>После установки новых пакетов обновите requirements.txt:</p>
+                    <div class="command-block bg-dark text-light p-3 rounded mb-3">
+                        <code>source venv/bin/activate && pip freeze > requirements.txt</code>
+                        <button class="btn btn-sm btn-outline-light copy-btn" onclick="copyCommand(this)"><i class="bi bi-clipboard"></i></button>
+                    </div>
+                    
+                    <h3 class="h5">Установка всех зависимостей из requirements.txt</h3>
+                    <p>При первой настройке или после клонирования проекта:</p>
+                    <div class="command-block bg-dark text-light p-3 rounded mb-3">
+                        <code>source venv/bin/activate && pip install -r requirements.txt</code>
+                        <button class="btn btn-sm btn-outline-light copy-btn" onclick="copyCommand(this)"><i class="bi bi-clipboard"></i></button>
+                    </div>
+                    
+                    <hr>
+                    
+                    <h2 class="h4 text-primary">Работа с данными</h2>
+                    
+                    <h3 class="h5">Создание ключа шифрования</h3>
+                    <p>Если файл <code>.env</code> отсутствует, создайте новый ключ шифрования:</p>
+                    <div class="command-block bg-dark text-light p-3 rounded mb-3 small">
+                        <code>python3 -c "from cryptography.fernet import Fernet; print('SECRET_KEY=' + Fernet.generate_key().decode())"</code>
+                        <button class="btn btn-sm btn-outline-light copy-btn" onclick="copyCommand(this)"><i class="bi bi-clipboard"></i></button>
+                    </div>
+                    <p class="text-muted small">Скопируйте сгенерированный ключ в файл .env</p>
+                    
+                    <h3 class="h5">Просмотр текущего ключа</h3>
+                    <p>Чтобы увидеть ваш текущий ключ шифрования:</p>
+                    <div class="command-block bg-dark text-light p-3 rounded mb-3">
+                        <code>cat .env</code>
+                        <button class="btn btn-sm btn-outline-light copy-btn" onclick="copyCommand(this)"><i class="bi bi-clipboard"></i></button>
+                    </div>
+                    
+                    <h3 class="h5">Проверка данных</h3>
+                    <p>Для расшифровки и просмотра данных используйте встроенную утилиту:</p>
+                    <div class="command-block bg-dark text-light p-3 rounded mb-3">
+                        <code>source venv/bin/activate && python3 tools/decrypt_tool.py</code>
+                        <button class="btn btn-sm btn-outline-light copy-btn" onclick="copyCommand(this)"><i class="bi bi-clipboard"></i></button>
+                    </div>
+                    
+                    <h3 class="h5">Просмотр схемы данных AI-сервисов</h3>
+                    <p>Для изучения структуры данных AI-сервисов:</p>
+                    <div class="command-block bg-dark text-light p-3 rounded mb-3">
+                        <code>source venv/bin/activate && python3 tools/ai_services_viewer.py</code>
+                        <button class="btn btn-sm btn-outline-light copy-btn" onclick="copyCommand(this)"><i class="bi bi-clipboard"></i></button>
+                    </div>
+                    
+                    <hr>
+                    
+                    <h2 class="h4 text-primary">Полезные алиасы</h2>
+                    <p>Добавьте эти строки в <code>~/.zshrc</code> для быстрого доступа:</p>
+                    <div class="command-block bg-dark text-light p-3 rounded mb-3">
+                        <pre><code># AI Manager
+alias ai-cd='cd /path/to/your/project'
+alias ai-run='cd /path/to/your/project && source venv/bin/activate && python3 run_app.py'
+alias ai-web='cd /path/to/your/project && source venv/bin/activate && python3 app.py'
+alias ai-build='cd /path/to/your/project && source venv/bin/activate && python3 build_macos.py'
+alias ai-key='cd /path/to/your/project && cat .env'
+alias ai-data='cd /path/to/your/project && source venv/bin/activate && python3 tools/decrypt_tool.py'
+alias ai-schema='cd /path/to/your/project && source venv/bin/activate && python3 tools/ai_services_viewer.py'</code></pre>
+                        <button class="btn btn-sm btn-outline-light copy-btn" onclick="copyCommand(this)"><i class="bi bi-clipboard"></i></button>
+                    </div>
+                    
+                    <p>После добавления выполните:</p>
+                    <div class="command-block bg-dark text-light p-3 rounded mb-3">
+                        <code>source ~/.zshrc</code>
+                        <button class="btn btn-sm btn-outline-light copy-btn" onclick="copyCommand(this)"><i class="bi bi-clipboard"></i></button>
+                    </div>
+                    
+                    <div class="alert alert-info" role="alert">
+                        <strong>Теперь вы можете использовать короткие команды:</strong>
+                        <ul class="mb-0 mt-2">
+                            <li><code>ai-cd</code> - перейти в папку проекта</li>
+                            <li><code>ai-run</code> - запустить GUI приложение</li>
+                        <li><code>ai-web</code> - запустить веб-интерфейс</li>
+                            <li><code>ai-build</code> - собрать приложение</li>
+                            <li><code>ai-key</code> - показать ключ шифрования</li>
+                            <li><code>ai-data</code> - просмотреть данные AI-сервисов</li>
+                            <li><code>ai-schema</code> - показать схему данных</li>
+                        </ul>
+                    </div>
+                    
+                    <hr>
+                    
+                    <h2 class="h4 text-primary">Новые функции</h2>
+                    
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="card border-primary h-100">
+                                <div class="card-body">
+                                    <h5 class="card-title text-primary"><i class="bi bi-palette"></i> Поддержка тем</h5>
+                                    <p class="card-text">Приложение поддерживает переключение между светлой и темной темой через значок в верхней панели.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card border-success h-100">
+                                <div class="card-body">
+                                    <h5 class="card-title text-success"><i class="bi bi-zoom-in"></i> Масштабирование</h5>
+                                    <p class="card-text">Изменение масштаба интерфейса (80%, 90%, 100%) через значок лупы в верхней панели.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card border-warning h-100">
+                                <div class="card-body">
+                                    <h5 class="card-title text-warning"><i class="bi bi-download"></i> Экспорт</h5>
+                                    <p class="card-text">Доступны три варианта экспорта: данные, ключ или полный архив с файлами.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    
+                    <h2 class="h4 text-primary">Настройка аутентификации</h2>
+                    
+                    <h3 class="h5">Статические пароли</h3>
+                    <p>Для работы в офлайн-режиме или быстрого доступа настройте статические пароли в файле <code>.env</code>:</p>
+                    <div class="command-block bg-dark text-light p-3 rounded mb-3">
+                        <code>YUBIKEY_STATIC_PASSWORDS=your-password1,your-password2,your-password3</code>
+                        <button class="btn btn-sm btn-outline-light copy-btn" onclick="copyCommand(this)"><i class="bi bi-clipboard"></i></button>
+                    </div>
+                    <p class="text-muted small">Разделяйте пароли запятыми без пробелов</p>
+                    
+                    <div class="alert alert-info" role="alert">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>Совет:</strong> Статические пароли работают даже без интернета и YubiKey устройства.
+                    </div>
+                    
+                    <hr>
+                    
+                    <h2 class="h4 text-primary">YubiKey Аутентификация</h2>
+                    
+                    <div class="alert alert-info" role="alert">
+                        <i class="bi bi-shield-lock me-2"></i>
+                        <strong>YubiKey</strong> — это физическое устройство для двухфакторной аутентификации, которое обеспечивает дополнительный уровень безопасности вашего приложения.
+                    </div>
+                    
+                    <h3 class="h5 mt-4">Принцип работы</h3>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card border-primary h-100">
+                                <div class="card-header bg-primary text-white">
+                                    <h6 class="mb-0"><i class="bi bi-play-circle me-2"></i>Без YubiKey</h6>
+                                </div>
+                                <div class="card-body">
+                                    <ul class="mb-0">
+                                        <li>Приложение работает в обычном режиме</li>
+                                        <li>Доступ открыт для всех</li>
+                                        <li>Никаких дополнительных проверок</li>
+                                        <li>Подходит для первичной настройки</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card border-success h-100">
+                                <div class="card-header bg-success text-white">
+                                    <h6 class="mb-0"><i class="bi bi-shield-check me-2"></i>С YubiKey</h6>
+                                </div>
+                                <div class="card-body">
+                                    <ul class="mb-0">
+                                        <li>Двухфакторная аутентификация</li>
+                                        <li>Доступ только с физическим ключом</li>
+                                        <li>Защита от несанкционированного доступа</li>
+                                        <li>Поддержка нескольких ключей</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <h3 class="h5 mt-4">Безопасность</h3>
+                    <div class="alert alert-warning" role="alert">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        <strong>Важно:</strong> Добавление новых ключей возможно только при наличии доступа к приложению (т.е. когда вы уже аутентифицированы или защита отключена).
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="card border-info h-100">
+                                <div class="card-body text-center">
+                                    <i class="bi bi-usb-drive text-info" style="font-size: 2rem;"></i>
+                                    <h6 class="mt-2">Физический ключ</h6>
+                                    <p class="small">YubiKey — это физическое устройство, которое невозможно скопировать или взломать удаленно.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card border-warning h-100">
+                                <div class="card-body text-center">
+                                    <i class="bi bi-clock text-warning" style="font-size: 2rem;"></i>
+                                    <h6 class="mt-2">OTP (One-Time Password)</h6>
+                                    <p class="small">Каждый код уникален и может быть использован только один раз. Генерируется при касании YubiKey.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card border-success h-100">
+                                <div class="card-body text-center">
+                                    <i class="bi bi-shield-lock text-success" style="font-size: 2rem;"></i>
+                                    <h6 class="mt-2">Множественные ключи</h6>
+                                    <p class="small">Можно настроить несколько YubiKey (основной + резервный) для повышения надежности.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <h3 class="h5 mt-4">Управление ключами</h3>
+                    <div class="accordion" id="yubikeyAccordion">
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="yubikeyHeading1">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#yubikeyCollapse1">
+                                    <i class="bi bi-plus-circle me-2"></i>Добавление первого ключа
+                                </button>
+                            </h2>
+                            <div id="yubikeyCollapse1" class="accordion-collapse collapse" data-bs-parent="#yubikeyAccordion">
+                                <div class="accordion-body">
+                                    <ol>
+                                        <li>Нажмите кнопку <strong>"Настроить YubiKey"</strong> на главной странице</li>
+                                        <li>Перейдите по ссылке <strong>"Как получить ключи Yubico?"</strong></li>
+                                        <li>Следуйте инструкции для получения Client ID и Secret Key</li>
+                                        <li>Вернитесь в приложение и введите полученные ключи</li>
+                                        <li>Укажите название для ключа (например, "Основной ключ")</li>
+                                        <li>Нажмите <strong>"Добавить ключ"</strong></li>
+                                    </ol>
+                                    <div class="alert alert-success mt-3">
+                                        <i class="bi bi-check-circle me-2"></i>
+                                        После добавления первого ключа защита автоматически включится!
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="yubikeyHeading2">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#yubikeyCollapse2">
+                                    <i class="bi bi-plus-circle me-2"></i>Добавление дополнительных ключей
+                                </button>
+                            </h2>
+                            <div id="yubikeyCollapse2" class="accordion-collapse collapse" data-bs-parent="#yubikeyAccordion">
+                                <div class="accordion-body">
+                                    <div class="alert alert-info">
+                                        <i class="bi bi-info-circle me-2"></i>
+                                        <strong>Требование безопасности:</strong> Для добавления новых ключей необходимо быть аутентифицированным (войти с существующим YubiKey).
+                                    </div>
+                                    <ol>
+                                        <li>Войдите в приложение с помощью существующего YubiKey</li>
+                                        <li>Перейдите в настройки YubiKey</li>
+                                        <li>В разделе "Добавить новый YubiKey" введите данные нового ключа</li>
+                                        <li>Укажите название (например, "Резервный ключ")</li>
+                                        <li>Нажмите <strong>"Добавить ключ"</strong></li>
+                                    </ol>
+                                    <p class="text-muted small mt-3">
+                                        <i class="bi bi-lightbulb me-1"></i>
+                                        <strong>Совет:</strong> Рекомендуется иметь резервный YubiKey на случай потери основного.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="yubikeyHeading3">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#yubikeyCollapse3">
+                                    <i class="bi bi-trash me-2"></i>Удаление ключей
+                                </button>
+                            </h2>
+                            <div id="yubikeyCollapse3" class="accordion-collapse collapse" data-bs-parent="#yubikeyAccordion">
+                                <div class="accordion-body">
+                                    <div class="alert alert-warning">
+                                        <i class="bi bi-exclamation-triangle me-2"></i>
+                                        <strong>Внимание:</strong> Удаление всех ключей отключит защиту YubiKey!
+                                    </div>
+                                    <ol>
+                                        <li>Перейдите в настройки YubiKey</li>
+                                        <li>В списке "Настроенные ключи" найдите нужный ключ</li>
+                                        <li>Нажмите кнопку <strong>"Удалить"</strong></li>
+                                        <li>Подтвердите удаление в диалоговом окне</li>
+                                    </ol>
+                                    <p class="text-muted small mt-3">
+                                        <i class="bi bi-info-circle me-1"></i>
+                                        Если удалить все ключи, приложение вернется в режим без защиты.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="yubikeyHeading4">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#yubikeyCollapse4">
+                                    <i class="bi bi-question-circle me-2"></i>Восстановление доступа
+                                </button>
+                            </h2>
+                            <div id="yubikeyCollapse4" class="accordion-collapse collapse" data-bs-parent="#yubikeyAccordion">
+                                <div class="accordion-body">
+                                    <h6>Если потеряли все YubiKey:</h6>
+                                    <ol>
+                                        <li>Найдите файл конфигурации: <code>~/Library/Application Support/AiManager/yubikey_config.json</code></li>
+                                        <li>Удалите или переименуйте этот файл</li>
+                                        <li>Перезапустите приложение</li>
+                                        <li>Защита будет отключена, и вы сможете настроить новые ключи</li>
+                                    </ol>
+                                    <div class="alert alert-danger mt-3">
+                                        <i class="bi bi-exclamation-triangle me-2"></i>
+                                        <strong>Важно:</strong> Этот метод отключает защиту! Используйте только в крайнем случае.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <h3 class="h5 mt-4">Процесс входа</h3>
+                    <div class="alert alert-light border">
+                        <p class="mb-0">Процесс входа зависит от наличия интернет-соединения. Приложение автоматически определяет режим.</p>
+                                </div>
+                    
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <div class="card border-primary h-100">
+                                <div class="card-header bg-primary text-white">
+                                    <h6><i class="bi bi-wifi me-2"></i>Онлайн-вход</h6>
+                                </div>
+                                <div class="card-body">
+                                    <p>Используется, когда есть интернет. Это самый безопасный метод.</p>
+                                    <ol class="small">
+                                        <li>Вставьте YubiKey.</li>
+                                        <li>В поле ввода **коротко коснитесь** (1 сек) золотого контакта на ключе.</li>
+                                        <li>Код OTP будет введен автоматически.</li>
+                                        <li>Нажмите "Войти".</li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card border-secondary h-100">
+                                <div class="card-header bg-secondary text-white">
+                                    <h6><i class="bi bi-wifi-off me-2"></i>Офлайн-вход</h6>
+                                </div>
+                                <div class="card-body">
+                                    <p>Используется, когда нет интернета. Требует предварительно настроенный статический пароль.</p>
+                                    <ol class="small">
+                                        <li>Вставьте YubiKey.</li>
+                                        <li>В поле ввода **нажмите и удерживайте** (2-3 сек) золотой контакт на ключе.</li>
+                                        <li>Статический пароль будет введен автоматически.</li>
+                                        <li>Нажмите "Войти".</li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-success mt-4" role="alert">
+                        <i class="bi bi-shield-check me-2"></i>
+                        <strong>Преимущества YubiKey:</strong> Максимальная безопасность, простота использования, защита от фишинга и невозможность клонирования ключа.
+                    </div>
+                    
+                    <hr>
+                    
+                    <h2 class="h4 text-primary">Добавление сервисов</h2>
+                    
+                    <div class="alert alert-info" role="alert">
+                        <i class="bi bi-plus-circle me-2"></i>
+                        <strong>Как добавить новый AI сервис:</strong>
+                    </div>
+                    
+                    <ol>
+                        <li><strong>Нажмите кнопку "Добавить сервис"</strong> на главной странице</li>
+                        <li><strong>Заполните форму:</strong>
+                            <ul>
+                                <li><strong>Название</strong> - название AI сервиса</li>
+                                <li><strong>URL</strong> - веб-адрес сервиса</li>
+                                <li><strong>API ключ</strong> - ваш API ключ (будет зашифрован)</li>
+                                <li><strong>Описание</strong> - дополнительная информация</li>
+                                <li><strong>Теги</strong> - для категоризации</li>
+                            </ul>
+                        </li>
+                        <li><strong>Нажмите "Сохранить"</strong> - сервис будет добавлен и зашифрован</li>
+                    </ol>
+                    
+                    <div class="alert alert-success" role="alert">
+                        <i class="bi bi-shield-check me-2"></i>
+                        <strong>Безопасность:</strong> Все API ключи автоматически зашифровываются и хранятся в защищенном виде.
+                    </div>
+                    
+                    <hr>
+                    
+                    <h2 class="h4 text-primary">Безопасность</h2>
+                    
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="card border-primary h-100">
+                                <div class="card-header bg-primary text-white">
+                                    <h6 class="mb-0"><i class="bi bi-lock me-2"></i>Шифрование данных</h6>
+                                </div>
+                                <div class="card-body">
+                                    <ul class="mb-0">
+                                        <li>Все данные зашифрованы с помощью Fernet (AES-128)</li>
+                                        <li>Ключи шифрования хранятся в файле .env</li>
+                                        <li>Автоматическое перешифрование при смене ключей</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card border-success h-100">
+                                <div class="card-header bg-success text-white">
+                                    <h6 class="mb-0"><i class="bi bi-shield-check me-2"></i>Аутентификация</h6>
+                                </div>
+                                <div class="card-body">
+                                    <ul class="mb-0">
+                                        <li>YubiKey - двухфакторная аутентификация</li>
+                                        <li>Статические пароли - для офлайн-режима</li>
+
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card border-warning h-100">
+                                <div class="card-header bg-warning text-white">
+                                    <h6 class="mb-0"><i class="bi bi-journal-text me-2"></i>Логирование</h6>
+                                </div>
+                                <div class="card-body">
+                                    <ul class="mb-0">
+                                        <li>Все события безопасности логируются</li>
+                                        <li>Логи хранятся в папке logs/</li>
+                                        <li>Отслеживание попыток несанкционированного доступа</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    
+                    <h2 class="h4 text-primary">Решение проблем</h2>
+                    
+                    <div class="accordion" id="troubleshootingAccordion">
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="headingOne">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne">
+                                    Ошибка "Fernet key must be 32 url-safe base64-encoded bytes"
+                                </button>
+                            </h2>
+                            <div id="collapseOne" class="accordion-collapse collapse" data-bs-parent="#troubleshootingAccordion">
+                                <div class="accordion-body">
+                                    <p>Перегенерируйте секретный ключ:</p>
+                                    <div class="command-block bg-dark text-light p-3 rounded">
+                                        <code>python3 -c "from cryptography.fernet import Fernet; print('SECRET_KEY=' + Fernet.generate_key().decode())"</code>
+                                        <button class="btn btn-sm btn-outline-light copy-btn" onclick="copyCommand(this)"><i class="bi bi-clipboard"></i></button>
+                                    </div>
+                                    <p class="text-muted small mt-2">Скопируйте сгенерированный ключ в файл .env</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="headingTwo">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo">
+                                    Ошибка "Module not found"
+                                </button>
+                            </h2>
+                            <div id="collapseTwo" class="accordion-collapse collapse" data-bs-parent="#troubleshootingAccordion">
+                                <div class="accordion-body">
+                                    <p>Установите зависимости:</p>
+                                    <div class="command-block bg-dark text-light p-3 rounded">
+                                        <code>pip install -r requirements.txt</code>
+                                        <button class="btn btn-sm btn-outline-light copy-btn" onclick="copyCommand(this)"><i class="bi bi-clipboard"></i></button>
+                                    </div>
+                                    <p class="text-muted small mt-2">Убедитесь, что виртуальное окружение активировано</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="headingThree">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseThree">
+                                    Пустой белый экран
+                                </button>
+                            </h2>
+                            <div id="collapseThree" class="accordion-collapse collapse" data-bs-parent="#troubleshootingAccordion">
+                                <div class="accordion-body">
+                                    <p>Проверьте логи в консоли и убедитесь, что все статические файлы загружаются:</p>
+                                    <div class="command-block bg-dark text-light p-3 rounded">
+                                        <code>curl -s http://127.0.0.1:5050 | head -10</code>
+                                        <button class="btn btn-sm btn-outline-light copy-btn" onclick="copyCommand(this)"><i class="bi bi-clipboard"></i></button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="headingFour">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseFour">
+                                    YubiKey не работает
+                                </button>
+                            </h2>
+                            <div id="collapseFour" class="accordion-collapse collapse" data-bs-parent="#troubleshootingAccordion">
+                                <div class="accordion-body">
+                                    <ul>
+                                        <li>Проверьте подключение к интернету</li>
+                                        <li>Убедитесь, что API ключи правильно настроены</li>
+                                        <li>Попробуйте статические пароли</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="headingFive">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseFive">
+                                    Статические пароли не работают
+                                </button>
+                            </h2>
+                            <div id="collapseFive" class="accordion-collapse collapse" data-bs-parent="#troubleshootingAccordion">
+                                <div class="accordion-body">
+                                    <ul>
+                                        <li>Проверьте файл .env</li>
+                                        <li>Убедитесь, что пароли правильно записаны</li>
+                                        <li>Проверьте формат: <code>YUBIKEY_STATIC_PASSWORDS=pass1,pass2,pass3</code></li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="headingSix">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSix">
+                                    Данные не загружаются
+                                </button>
+                            </h2>
+                            <div id="collapseSix" class="accordion-collapse collapse" data-bs-parent="#troubleshootingAccordion">
+                                <div class="accordion-body">
+                                    <ul>
+                                        <li>Проверьте файл config.json</li>
+                                        <li>Убедитесь, что путь к файлу данных правильный</li>
+                                        <li>Проверьте права доступа к папке data/</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="headingSeven">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSeven">
+                                    Ошибка шифрования
+                                </button>
+                            </h2>
+                            <div id="collapseSeven" class="accordion-collapse collapse" data-bs-parent="#troubleshootingAccordion">
+                                <div class="accordion-body">
+                                    <ul>
+                                        <li>Проверьте секретный ключ в .env</li>
+                                        <li>Попробуйте перегенерировать ключ</li>
+                                        <li>Убедитесь, что ключ правильно записан</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        
+
+                    </div>
+                    
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 
+
+{% block scripts %}
+<script>
+function copyCommand(button) {
+    const commandBlock = button.parentElement;
+    const codeElement = commandBlock.querySelector('code');
+    const textToCopy = codeElement.innerText;
+
+    navigator.clipboard.writeText(textToCopy).then(function() {
+        const originalIcon = button.innerHTML;
+        button.innerHTML = '<i class="bi bi-check-lg"></i>';
+        setTimeout(function() {
+            button.innerHTML = originalIcon;
+        }, 2000);
+    }, function(err) {
+        console.error('Ошибка при копировании: ', err);
+    });
+}
+</script>
+{% endblock %} 

@@ -1,0 +1,706 @@
+/* Light Theme */
+[data-bs-theme="light"] {
+    --bs-body-bg: #f0f7f6;
+    --bs-body-color: #000;
+    --bs-tertiary-bg: #ffffff;
+    --bs-border-color: #dee2e6;
+    --bs-primary: #008060;
+    --bs-primary-rgb: 0, 128, 96;
+    --bs-link-color: #008060;
+    --bs-link-hover-color: #005942;
+}
+
+/* Dark Theme */
+[data-bs-theme="dark"] {
+    --bs-body-bg: #0d1a26;
+    --bs-body-color: #e6e6e6;
+    --bs-tertiary-bg: #1a2938;
+    --bs-border-color: #2a3f52;
+    --bs-primary: #00bfa5;
+    --bs-primary-rgb: 0, 191, 165;
+    --bs-link-color: #00bfa5;
+    --bs-link-hover-color: #33cdc0;
+}
+
+/* Стандартные отступы для контейнера */
+.container {
+    padding-top: 1rem !important;
+    padding-bottom: 1rem !important;
+}
+
+.card {
+    background-color: var(--bs-tertiary-bg);
+}
+
+.form-control, .form-select {
+    background-color: var(--bs-tertiary-bg);
+}
+
+.btn-primary {
+    --bs-btn-bg: var(--bs-primary);
+    --bs-btn-border-color: var(--bs-primary);
+    --bs-btn-hover-bg: var(--bs-link-hover-color);
+    --bs-btn-hover-border-color: var(--bs-link-hover-color);
+}
+
+[data-bs-theme="dark"] .badge.bg-success {
+    color: #1a2938 !important; /* Темный текст на зеленом фоне */
+}
+
+/* Принудительно задает темный цвет текста для шапки карточки в обеих темах */
+.force-dark-text, .force-dark-text h5, .force-dark-text small {
+    color: #212529 !important;
+}
+
+/* Улучшенная видимость текста в дополнительной информации */
+.card-body textarea,
+.card-body .form-control {
+    color: var(--bs-body-color) !important;
+    background-color: var(--bs-tertiary-bg) !important;
+    border: 1px solid var(--bs-border-color) !important;
+}
+
+/* Контрастный текст для всех элементов карточек */
+.card-body p, 
+.card-body div,
+.card-body span,
+.collapse .card-body {
+    color: var(--bs-body-color) !important;
+}
+
+/* Особая видимость для зашифрованных данных с предупреждением */
+.encrypted-data-warning {
+    color: #ff6b6b !important;
+    background-color: rgba(255, 107, 107, 0.1) !important;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 500;
+}
+
+/* OAuth кнопки */
+.oauth-buttons {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 15px;
+}
+
+/* Универсальный стиль для ВСЕХ OAuth кнопок */
+.btn-oauth {
+    background: transparent !important;
+    color: #0066cc !important; /* Яркий синий цвет */
+    border: 1px solid #0066cc !important; /* Такой же яркий синий */
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    text-align: center;
+    vertical-align: middle;
+    user-select: none;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+    font-size: 0.875rem;  /* Стандартный размер текста */
+    font-weight: 500;     /* Средняя жирность */
+    line-height: 1.5;     /* Стандартная высота строки */
+}
+
+.btn-oauth:hover {
+    background: #0066cc !important;
+    color: white !important;
+}
+
+/* Специфичные стили для каждого провайдера */
+.btn-google,
+.btn-apple,
+.btn-github,
+.btn-microsoft,
+.btn-medium {
+    border-color: #0066cc !important;
+    color: #0066cc !important;
+}
+
+.btn-google:hover,
+.btn-apple:hover,
+.btn-github:hover,
+.btn-microsoft:hover,
+.btn-medium:hover {
+    background: #0066cc !important;
+    color: white !important;
+}
+
+.dynamic-gradient {
+    background: linear-gradient(165deg, var(--gradient-start, #667eea), var(--gradient-end, #4a5ab2));
+    background-size: 100% 100%;
+    color: white;
+    transition: background 0.5s ease;
+}
+
+.feature-link {
+    cursor: pointer;
+    color: var(--bs-primary);
+    text-decoration: underline;
+    transition: color 0.3s ease;
+}
+
+.feature-link:hover {
+    color: var(--bs-primary-darker);
+}
+
+.card-body .badge.bg-light.text-dark {
+    background-color: var(--bs-primary) !important;
+    color: white !important;
+    opacity: 0.8;
+}
+
+.card-body .badge.bg-light.text-dark:hover {
+    opacity: 1;
+}
+
+/* Стили для кликабельных ссылок в бейджах */
+.badge a {
+    color: white !important;
+    text-decoration: underline !important;
+    pointer-events: auto !important;
+    z-index: 10 !important;
+    position: relative !important;
+    cursor: pointer !important;
+}
+
+.badge a:hover {
+    color: #f0f0f0 !important;
+    text-decoration: none !important;
+}
+
+/* Убеждаемся, что бейджи не блокируют клики */
+.badge {
+    pointer-events: auto !important;
+}
+
+.badge.dynamic-gradient {
+    pointer-events: auto !important;
+}
+
+/* --- Эффект колоды карточек --- */
+.carousel-wrapper {
+  margin-bottom: 20px; /* Отступ для индикаторов */
+  position: relative; /* Необходимо для позиционирования индикаторов */
+  padding-bottom: 40px; /* Достаточно места для индикаторов и тени */
+}
+.card-carousel-row {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 32px;
+  overflow-x: auto;
+  width: 100%;
+  margin-bottom: 0;
+  padding: 30px 40px; /* Убрал лишний нижний отступ */
+  /* Скрываем скроллбар */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none;  /* IE и Edge */
+}
+
+.card-carousel-row::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, and Opera */
+}
+
+.card-carousel-card {
+  flex: 0 0 420px;
+  max-width: 90vw;
+  transition: transform 0.4s, box-shadow 0.4s, opacity 0.4s;
+  opacity: 0.95;
+  transform: scale(1);
+  z-index: 1;
+  margin-bottom: 0;
+}
+
+.card-carousel-card.active {
+  opacity: 1;
+  transform: scale(1.05);
+  z-index: 3;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+}
+
+/* Убираем лишние отступы у .container */
+.container {
+  padding-bottom: 1rem !important; /* Возвращаем адекватный отступ */
+}
+.card-carousel-row {
+  min-height: unset !important;
+  height: auto !important;
+  margin-bottom: 0 !important;
+  padding-bottom: 30px !important; /* Небольшой отступ для тени */
+}
+.card-carousel-card {
+  height: auto;
+  opacity: 0.7;
+  transform: scale(0.95);
+  box-shadow: none;
+  transition: all 0.3s;
+}
+.card-carousel-card.active {
+  opacity: 1;
+  transform: scale(1.05);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+  border: 2px solid #008060;
+  z-index: 3;
+}
+.card-stack-actions {
+  display: none;
+}
+.card-carousel-card.active .card-stack-actions {
+  display: block;
+}
+
+.carousel-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(40,40,40,0.85);
+  color: #fff;
+  border: none;
+  font-size: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.18);
+  z-index: 20;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+  opacity: 0.85;
+}
+.carousel-arrow:hover {
+  background: #008060;
+  color: #fff;
+  opacity: 1;
+}
+.carousel-arrow-left {
+  left: -32px;
+}
+.carousel-arrow-right {
+  right: -32px;
+}
+@media (max-width: 900px) {
+  .carousel-arrow-left { left: 0; }
+  .carousel-arrow-right { right: 0; }
+}
+
+.carousel-indicators {
+    position: absolute;
+    bottom: 10px; /* Позиционируем внизу обертки */
+    left: 50%;
+    transform: translateX(-50%); /* Центрируем */
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin: 0; /* Убираем лишние отступы */
+    padding: 0;
+    list-style: none;
+    z-index: 5; /* Над карточками */
+}
+.carousel-indicator-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #888;
+  opacity: 0.4;
+  cursor: pointer;
+  transition: background 0.2s, opacity 0.2s;
+  border: 2px solid transparent;
+}
+.carousel-indicator-dot.active {
+  background: #008060;
+  opacity: 1;
+  border: 2px solid #fff;
+}
+.card-body {
+  padding-top: 0.75rem !important;
+  padding-bottom: 0.75rem !important;
+}
+
+.card-carousel-card:not(.active) a,
+.card-carousel-card:not(.active) button,
+.card-carousel-card:not(.active) input,
+.card-carousel-card:not(.active) select,
+.card-carousel-card:not(.active) textarea,
+.card-carousel-card:not(.active) label {
+  pointer-events: none !important;
+  opacity: 0.6;
+  cursor: default !important;
+}
+.card-carousel-card.active a,
+.card-carousel-card.active button,
+.card-carousel-card.active input,
+.card-carousel-card.active select,
+.card-carousel-card.active textarea,
+.card-carousel-card.active label {
+  pointer-events: auto !important;
+  opacity: 1;
+  cursor: pointer;
+}
+
+.feature-item {
+    display: block;
+    padding: 0.35em 0.65em;
+    font-size: .75em;
+    font-weight: 700;
+    line-height: 1;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    border-radius: 0.25rem;
+    cursor: pointer;
+}
+
+.feature-item:hover {
+    text-decoration: underline;
+}
+
+.command-block {
+    position: relative;
+}
+
+.copy-btn {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+.command-block:hover .copy-btn {
+    opacity: 1;
+}
+
+.feature-item {
+    background-color: var(--feature-bg, #6c757d);
+    color: white;
+    padding: 0.3em 0.6em;
+    border-radius: 0.25rem;
+    font-size: 0.9em;
+    font-weight: 500;
+    text-decoration: none;
+    display: inline-block;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    vertical-align: middle;
+}
+.feature-item a {
+    color: white;
+    text-decoration: none;
+}
+.feature-item:hover {
+    text-decoration: underline;
+}
+
+pre.additional-info-content {
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: transparent;
+    font-family: inherit;
+    font-size: 0.85rem;
+    color: var(--bs-body-color);
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    user-select: none; /* Отключаем выделение для неактивных карточек */
+}
+.card-carousel-card.active pre.additional-info-content {
+    user-select: text; /* Включаем выделение только для активной карточки */
+}
+
+.subscription-details {
+    font-size: 0.9rem;
+}
+.subscription-details p {
+    margin-bottom: 0.3rem;
+    line-height: 1.3;
+}
+.subscription-details .badge {
+    border-radius: 6px !important;
+    padding: 0.3rem 0.6rem !important;
+    font-weight: 500 !important;
+    text-transform: none !important;
+    border: 1px solid;
+}
+.subscription-details .badge.bg-warning { /* "Автопродление выключено" */
+    background-color: rgba(255, 193, 7, 0.15) !important;
+    color: #ffc107 !important;
+    border-color: rgba(255, 193, 7, 0.4) !important;
+}
+.subscription-details .badge.bg-success { /* "Автопродление включено" */
+    background-color: rgba(3, 166, 133, 0.15) !important;
+    color: #03a685 !important;
+    border-color: rgba(3, 166, 133, 0.4) !important;
+}
+
+/* Улучшенная видимость для светлой темы */
+[data-bs-theme="light"] {
+  /* Улучшенная видимость для светлой темы */
+  .form-control, .form-select {
+    background-color: #ffffff !important;
+    border-color: #dee2e6 !important;
+    color: #212529 !important;
+  }
+  
+  .form-control:focus, .form-select:focus {
+    background-color: #ffffff !important;
+    border-color: #86b7fe !important;
+    color: #212529 !important;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25) !important;
+  }
+  
+  .card {
+    background-color: #ffffff !important;
+    border-color: #dee2e6 !important;
+    color: #212529 !important;
+  }
+  
+  .card-header {
+    background-color: #f8f9fa !important;
+    border-bottom-color: #dee2e6 !important;
+    color: #212529 !important;
+  }
+  
+  .card-body {
+    background-color: #ffffff !important;
+    color: #212529 !important;
+  }
+  
+  .alert-info {
+    background-color: #d1ecf1 !important;
+    border-color: #bee5eb !important;
+    color: #0c5460 !important;
+  }
+  
+  .alert-success {
+    background-color: #d4edda !important;
+    border-color: #c3e6cb !important;
+    color: #155724 !important;
+  }
+  
+  .form-label {
+    color: #212529 !important;
+    font-weight: 500 !important;
+  }
+  
+  .form-text {
+    color: #6c757d !important;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    color: #212529 !important;
+  }
+  
+  p {
+    color: #212529 !important;
+  }
+  
+  strong {
+    color: #212529 !important;
+  }
+  
+  small {
+    color: #6c757d !important;
+  }
+  
+  hr {
+    border-color: #dee2e6 !important;
+  }
+  
+  .btn-secondary {
+    background-color: #6c757d !important;
+    border-color: #6c757d !important;
+    color: #ffffff !important;
+  }
+  
+  .btn-secondary:hover {
+    background-color: #5c636a !important;
+    border-color: #565e64 !important;
+    color: #ffffff !important;
+  }
+  
+  .form-select option {
+    background-color: #ffffff !important;
+    color: #212529 !important;
+  }
+  
+  textarea.form-control {
+    background-color: #ffffff !important;
+    color: #212529 !important;
+  }
+  
+  input[type="color"] {
+    background-color: #ffffff !important;
+    border-color: #dee2e6 !important;
+  }
+  
+  .img-thumbnail {
+    background-color: #ffffff !important;
+    border-color: #dee2e6 !important;
+  }
+  
+  .modal-content {
+    background-color: #ffffff !important;
+    border-color: #dee2e6 !important;
+    color: #212529 !important;
+  }
+  
+  .modal-header {
+    background-color: #f8f9fa !important;
+    border-bottom-color: #dee2e6 !important;
+    color: #212529 !important;
+  }
+  
+  .modal-body {
+    background-color: #ffffff !important;
+    color: #212529 !important;
+  }
+  
+  .modal-footer {
+    background-color: #f8f9fa !important;
+    border-top-color: #dee2e6 !important;
+  }
+  
+  pre {
+    background-color: #f8f9fa !important;
+    border-color: #dee2e6 !important;
+    color: #212529 !important;
+  }
+  
+  .btn-close {
+    filter: invert(0) !important;
+  }
+  
+  .alert-link {
+    color: #0c5460 !important;
+  }
+  
+  .alert-link:hover {
+    color: #0a4148 !important;
+  }
+  
+  .text-muted {
+    color: #6c757d !important;
+  }
+  
+  .btn-outline-secondary {
+    color: #6c757d !important;
+    border-color: #6c757d !important;
+  }
+  
+  .btn-outline-secondary:hover {
+    background-color: #6c757d !important;
+    color: #ffffff !important;
+  }
+  
+  .btn-outline-warning {
+    color: #ffc107 !important;
+    border-color: #ffc107 !important;
+  }
+  
+  .btn-outline-warning:hover {
+    background-color: #ffc107 !important;
+    color: #000000 !important;
+  }
+  
+  .btn-outline-danger {
+    color: #dc3545 !important;
+    border-color: #dc3545 !important;
+  }
+  
+  .btn-outline-danger:hover {
+    background-color: #dc3545 !important;
+    color: #ffffff !important;
+  }
+  
+  .btn-sm {
+    background-color: #6c757d !important;
+    border-color: #6c757d !important;
+    color: #ffffff !important;
+  }
+  
+  .gap-2 {
+    gap: 0.5rem !important;
+  }
+  
+  .d-flex {
+    display: flex !important;
+  }
+  
+  .justify-content-between {
+    justify-content: space-between !important;
+  }
+  
+  .justify-content-center {
+    justify-content: center !important;
+  }
+  
+  .align-items-center {
+    align-items: center !important;
+  }
+  
+  .position-relative {
+    position: relative !important;
+  }
+  
+  .shadow-sm {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075) !important;
+  }
+  
+  .text-center {
+    text-align: center !important;
+  }
+  
+  .pt-2 {
+    padding-top: 0.5rem !important;
+  }
+  
+  .px-4 {
+    padding-left: 1.5rem !important;
+    padding-right: 1.5rem !important;
+  }
+  
+  .btn-lg {
+    background-color: #0d6efd !important;
+    border-color: #0d6efd !important;
+    color: #ffffff !important;
+  }
+  
+  .d-grid {
+    display: grid !important;
+  }
+  
+  .d-sm-flex {
+    display: flex !important;
+  }
+  
+  .justify-content-sm-center {
+    justify-content: center !important;
+  }
+  
+  .me-2 {
+    margin-right: 0.5rem !important;
+  }
+  
+  .mt-3 {
+    margin-top: 1rem !important;
+  }
+  
+  .mb-4 {
+    margin-bottom: 1.5rem !important;
+  }
+  
+  .card-footer {
+    background-color: #f8f9fa !important;
+    border-top-color: #dee2e6 !important;
+    color: #212529 !important;
+  }
+}

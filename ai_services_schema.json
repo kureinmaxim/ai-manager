@@ -1,0 +1,31 @@
+{
+  "service_types": [
+    "AI Development Tool",
+    "AI Writing Assistant",
+    "AI Image Generator",
+    "AI Video Generator",
+    "Media Platform",
+    "Professional Network",
+    "Cloud Service",
+    "Productivity Tool"
+  ],
+  "supported_currencies": [
+    "USD",
+    "EUR",
+    "RUB",
+    "GBP"
+  ],
+  "billing_cycles": [
+    "weekly",
+    "monthly",
+    "quarterly",
+    "yearly"
+  ],
+  "status_options": [
+    "active",
+    "inactive",
+    "trial",
+    "expired",
+    "cancelled"
+  ]
+}
