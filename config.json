@@ -1,11 +1,11 @@
 {
   "SECRET_KEY_FILE": ".env",
   "app_info": {
-    "version": "5.5.4",
-    "release_date": "31.07.2025",
+    "version": "5.5.5",
+    "release_date": "13.09.2025",
     "developer": "Разработчик",
     "description": "Менеджер сервисов с шифрованием данных",
-    "last_updated": "2025-07-31"
+    "last_updated": "2025-09-13"
   },
   "service_urls": {
     "ip_check_api": "https://ipinfo.io/{ip}/json",

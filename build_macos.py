@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Скрипт для сборки macOS-приложения All Manager.
+Скрипт для сборки macOS-приложения AllManagerC.
 Создает .app бандл и .dmg образ для распространения.
 """
 import os
@@ -33,7 +33,7 @@ def cleanup_previous_builds():
     if BUILD_DIR.exists():
         shutil.rmtree(BUILD_DIR, ignore_errors=True)
 
-    spec_file = PROJECT_ROOT / f"AllManager.spec"
+    spec_file = PROJECT_ROOT / f"AllManagerC.spec"
     if spec_file.exists():
         print(f"Удаление старого файла .spec: {spec_file}")
         spec_file.unlink()
@@ -71,14 +71,15 @@ def update_config_and_get_version():
         return None
 
 # Проверка наличия иконки, если нет - создаем её из PNG
+
 def check_and_create_icns():
     if not ICON_FILE.exists():
         print("Иконка .icns не найдена. Попытка создать из PNG...")
-        # Исправляем путь к PNG иконке - убираем символ "@"
-        png_icon = PROJECT_ROOT / 'static' / 'images' / 'icon.png'
+        # Используем новый исходник иконки: ALLc.png
+        png_icon = PROJECT_ROOT / 'static' / 'images' / 'ALLc.png'
         
         if not png_icon.exists():
-            print("PNG иконка тоже не найдена. Будет использована стандартная иконка.")
+            print("PNG иконка ALLc.png не найдена. Будет использована стандартная иконка.")
             return False
         
         try:
@@ -108,12 +109,10 @@ def check_and_create_icns():
             subprocess.call(['iconutil', '-c', 'icns', str(iconset_dir)])
             
             # Перемещаем созданный .icns файл в нужное место
-            # ИСПРАВЛЕНИЕ: iconutil создает .icns, заменяя расширение .iconset
             created_icns = iconset_dir.with_suffix('.icns')
             if created_icns.exists():
                 shutil.move(created_icns, ICON_FILE)
             else:
-                # Резервный вариант, если что-то пошло не так с путем
                 fallback_icns = iconset_dir.parent / "tmp.icns"
                 if fallback_icns.exists():
                     shutil.move(fallback_icns, ICON_FILE)
@@ -126,6 +125,17 @@ def check_and_create_icns():
         except Exception as e:
             print(f"Ошибка создания .icns: {e}")
             return False
+    
+    # Проверяем актуальность существующей иконки: пересобираем, если PNG новее
+    try:
+        png_icon = PROJECT_ROOT / 'static' / 'images' / 'ALLc.png'
+        if png_icon.exists() and ICON_FILE.exists():
+            if png_icon.stat().st_mtime > ICON_FILE.stat().st_mtime:
+                print("ALLc.png новее, пересоздаем .icns...")
+                ICON_FILE.unlink()
+                return check_and_create_icns()
+    except Exception:
+        pass
     
     # Проверяем размер существующей иконки
     if ICON_FILE.stat().st_size < 1000:  # Если меньше 1KB, вероятно поврежден
@@ -291,7 +301,7 @@ def build_app():
         "-m", "PyInstaller",            # Явно вызываем модуль PyInstaller
         "--onedir",                     # Создать директорию с файлами (совместимо с .app)
         "--windowed",                   # GUI приложение (не консольное)
-        "--name=AllManager",             # Имя приложения
+        "--name=AllManagerC",             # Имя приложения
         icon_arg,                       # Иконка (если есть)
         "--clean",                      # Очистить кэш PyInstaller
         "--noconfirm",                  # Не запрашивать подтверждение
@@ -300,7 +310,7 @@ def build_app():
         "--noupx",                      # Отключаем UPX для стабильности
         "--strip",                      # Удаляем отладочную информацию
         # "--target-architecture=x86_64", # Убираем принудительное указание архитектуры
-        "--osx-bundle-identifier=com.allmanager.app", # Bundle ID для macOS
+        "--osx-bundle-identifier=com.allmanagerc.app", # Bundle ID для macOS
         "--debug=all",                  # Добавляем отладочную информацию
         *datas_args,                    # Добавляемые файлы и директории
         *hidden_imports,                # Скрытые импорты
@@ -317,7 +327,7 @@ def build_app():
         print(f"ОШИБКА: PyInstaller завершился с кодом {result.returncode}")
         return False
     
-    app_path = DIST_DIR / "AllManager.app"
+    app_path = DIST_DIR / "AllManagerC.app"
     if not app_path.exists():
         print("ОШИБКА: .app файл не был создан.")
         return False
@@ -436,7 +446,7 @@ def create_dmg(app_path):
 
 # Основная функция сборки
 def main():
-    print("Сборка All Manager для macOS")
+    print("Сборка AllManagerC для macOS")
     print("===========================")
     
     cleanup_previous_builds()
@@ -472,7 +482,7 @@ def main():
         
         print("\n=== ВАЖНАЯ ИНФОРМАЦИЯ ДЛЯ ЗАПУСКА ===")
         print("Приложение хранит все данные в директории пользователя:")
-        print("~/Library/Application Support/AllManager/")
+        print("~/Library/Application Support/AllManagerC/")
         print("\nПри первом запуске:")
         print("1. Щелкните по приложению правой кнопкой мыши")
         print("2. Выберите 'Открыть'")

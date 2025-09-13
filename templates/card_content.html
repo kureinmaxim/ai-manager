@@ -152,7 +152,7 @@
                     <small>Email для входа:</small>
                     <div class="input-group input-group-sm w-auto">
                         <span class="form-control form-control-sm text-truncate">{{ server.credentials.username_decrypted }}</span>
-                        <button class="btn btn-outline-secondary" type="button" onclick="copyToClipboard(this, '{{ server.credentials.username_decrypted }}')"><i class="bi bi-clipboard"></i></button>
+                        <button class="btn btn-outline-secondary" type="button" data-bs-toggle="tooltip" data-bs-placement="top" title="Скопировать email" data-copy-text='{{ server.credentials.username_decrypted|tojson }}'><i class="bi bi-clipboard"></i></button>
                     </div>
                 </div>
                 {% endif %}
@@ -161,7 +161,7 @@
                     <small>Пароль:</small>
                     <div class="input-group input-group-sm w-auto">
                         <span class="form-control form-control-sm text-truncate">••••••••</span>
-                        <button class="btn btn-outline-secondary" type="button" onclick="copyToClipboard(this, '{{ server.credentials.password_decrypted }}')"><i class="bi bi-clipboard"></i></button>
+                        <button class="btn btn-outline-secondary" type="button" data-bs-toggle="tooltip" data-bs-placement="top" title="Скопировать пароль" data-copy-text='{{ server.credentials.password_decrypted|tojson }}'><i class="bi bi-clipboard"></i></button>
                     </div>
                 </div>
                 {% endif %}

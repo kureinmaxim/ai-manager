@@ -8,6 +8,7 @@ from flask import Flask, render_template, request, redirect, url_for, make_respo
 from dotenv import load_dotenv
 from cryptography.fernet import Fernet, InvalidToken
 from werkzeug.utils import secure_filename
+from werkzeug.serving import make_server
 import requests
 from urllib.parse import urlparse
 import copy
@@ -22,6 +23,8 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 from jinja2.ext import do as DoExtension
 from yubikey_auth import check_internet_connection
 import sys
+import socket
+import time
 
 # Улучшенная загрузка .env файла для работы в дистрибутиве
 def load_env_file():
@@ -96,6 +99,8 @@ def load_env_file():
 load_env_file()
 
 app = Flask(__name__)
+# Уникальное имя cookie для сессии, чтобы не пересекаться с другими приложениями на 127.0.0.1
+app.config['SESSION_COOKIE_NAME'] = 'allmanagerc_session'
 
 # Включаем расширение 'do' для использования в шаблонах Jinja2
 app.jinja_env.add_extension(DoExtension)
@@ -110,7 +115,7 @@ def get_app_data_dir():
     is_frozen = getattr(sys, 'frozen', False)
     
     # Имя директории приложения
-    app_name = "AllManager"
+    app_name = "AllManagerC"
     
     if is_frozen:  # Приложение запущено как .app или .exe
         if sys.platform == 'darwin':  # macOS
@@ -2021,18 +2026,63 @@ def generate_new_key():
 
 @app.route('/shutdown')
 def shutdown():
-    """Завершает работу сервера."""
-    # Не используем стандартный метод, так как он может быть ненадежен
-    # Вместо этого, отправляем сигнал главному потоку
     os.kill(os.getpid(), signal.SIGINT)
     return 'Сервер выключается...'
 
-def run_flask():
-    """Запускает Flask-приложение."""
+@app.route('/clipboard', methods=['POST'])
+def set_clipboard():
     try:
-        # debug=False и use_reloader=False важны для стабильной работы в потоке
-        print("🚀 Запуск Flask сервера на http://127.0.0.1:5050")
-        app.run(host='127.0.0.1', port=5050, debug=False, use_reloader=False)
+        payload = request.get_json(silent=True) or {}
+        text = payload.get('text', '')
+        if sys.platform == 'darwin':
+            try:
+                pbcopy_path = '/usr/bin/pbcopy'
+                args = [pbcopy_path] if os.path.exists(pbcopy_path) else ['pbcopy']
+                proc = subprocess.Popen(args, stdin=subprocess.PIPE)
+                proc.communicate(input=(text or '').encode('utf-8'))
+                if proc.returncode == 0:
+                    return jsonify({'success': True})
+                osa_script = f'set the clipboard to {json.dumps(text or "")}'
+                rc = subprocess.call(['/usr/bin/osascript', '-e', osa_script])
+                return jsonify({'success': rc == 0})
+            except Exception:
+                try:
+                    osa_script = f'set the clipboard to {json.dumps(text or "")}'
+                    rc = subprocess.call(['/usr/bin/osascript', '-e', osa_script])
+                    return jsonify({'success': rc == 0})
+                except Exception as e2:
+                    return jsonify({'success': False, 'error': str(e2)}), 500
+        else:
+            try:
+                import pyperclip
+                pyperclip.copy(text or '')
+                return jsonify({'success': True})
+            except Exception as e:
+                return jsonify({'success': False, 'error': str(e)}), 500
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+def _is_port_free(port: int) -> bool:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            s.bind(('127.0.0.1', port))
+            return True
+        except OSError:
+            return False
+
+# --- Надёжный запуск сервера на свободном порте (без конфликтов) ---
+SERVER_PORT = None
+_WSGI_SERVER = None
+
+
+def _start_flask_server():
+    global SERVER_PORT, _WSGI_SERVER
+    try:
+        _WSGI_SERVER = make_server('127.0.0.1', 0, app)
+        SERVER_PORT = _WSGI_SERVER.server_port
+        print(f"🚀 Flask сервер запущен на http://127.0.0.1:{SERVER_PORT}")
+        _WSGI_SERVER.serve_forever()
     except Exception as e:
         print(f"❌ Ошибка запуска Flask сервера: {e}")
         import traceback
@@ -2182,15 +2232,21 @@ if __name__ == "__main__":
         
         # Запускаем Flask в отдельном потоке
         print("🔄 Запуск Flask в отдельном потоке...")
-        flask_thread = threading.Thread(target=run_flask)
+        flask_thread = threading.Thread(target=_start_flask_server)
         flask_thread.daemon = True
         flask_thread.start()
+        
+        # Ждём, пока сервер поднимется и задаст порт
+        for _ in range(100):
+            if SERVER_PORT:
+                break
+            time.sleep(0.05)
 
         def on_closing():
             print("Окно закрывается, отправка запроса на выключение...")
             try:
                 # Отправляем запрос на выключение, чтобы корректно остановить сервер
-                requests.get('http://127.0.0.1:5050/shutdown', timeout=1)
+                requests.get(f'http://127.0.0.1:{SERVER_PORT}/shutdown', timeout=1)
             except requests.exceptions.RequestException:
                 # Это нормально, так как сервер умрет до получения ответа
                 pass
@@ -2198,8 +2254,8 @@ if __name__ == "__main__":
         # Создаем окно PyWebView
         print("🔄 Создание GUI окна...")
         window = webview.create_window(
-            'AI Manager',
-            'http://127.0.0.1:5050',
+            'AllManagerC',
+            f'http://127.0.0.1:{SERVER_PORT or 5050}',
             width=1280,
             height=800,
             resizable=True

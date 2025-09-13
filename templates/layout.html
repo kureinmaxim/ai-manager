@@ -12,7 +12,7 @@
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
         <div class="container">
             <a class="navbar-brand" href="{{ url_for('index') }}">
-                <i class="bi bi-robot"></i> AI Manager
+                <i class="bi bi-robot"></i> AllManagerC
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
@@ -87,7 +87,7 @@
     
     <footer class="text-center small py-3 bg-body-tertiary border-top">
         <div class="container">
-            <p class="mb-0 text-body-secondary">AI Manager v{{ app_info.version }} | Разработчик: <span id="developer-name" style="cursor: pointer; text-decoration: underline;" title="Двойной клик для секретного входа">{{ app_info.developer }}</span></p>
+            <p class="mb-0 text-body-secondary">AllManagerC v{{ app_info.version }} | Разработчик: <span id="developer-name" style="cursor: pointer; text-decoration: underline;" title="Двойной клик для секретного входа">{{ app_info.developer }}</span></p>
         </div>
     </footer>
 
@@ -101,6 +101,19 @@
             // Инициализация dropdown
             const dropdownElementList = document.querySelectorAll('.dropdown-toggle');
             const dropdownList = [...dropdownElementList].map(dropdownToggleEl => new bootstrap.Dropdown(dropdownToggleEl));
+
+            // Инициализация tooltip-ов по всему приложению
+            const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+            window.__appTooltips = [...tooltipTriggerList].map(el => new bootstrap.Tooltip(el, { container: 'body', boundary: 'viewport' }));
+
+            // Делегирование клика: кнопки с data-copy-text
+            document.addEventListener('click', function(e) {
+                const btn = e.target.closest('[data-copy-text]');
+                if (!btn) return;
+                let raw = btn.getAttribute('data-copy-text') || '';
+                let val = raw; try { val = JSON.parse(raw); } catch(_) {}
+                copyToClipboard(btn, val);
+            });
         });
 
         function getCookie(name) {
@@ -125,6 +138,51 @@
             document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/`;
         }
         
+        function copyToClipboard(buttonEl, text) {
+          const value = text == null ? '' : String(text);
+          const performCopy = async (val) => {
+            try { if (navigator.clipboard) { await navigator.clipboard.writeText(val); return true; } } catch(_) {}
+            try {
+              let success = false;
+              const listener = (e) => { try { e.clipboardData.setData('text/plain', val); success = true; e.preventDefault(); } catch(_) {} };
+              document.addEventListener('copy', listener, { once: true });
+              const ta = document.createElement('textarea'); ta.value = val; ta.setAttribute('readonly','');
+              ta.style.position='absolute'; ta.style.left='-9999px'; ta.style.top='0'; document.body.appendChild(ta);
+              ta.focus(); ta.select(); ta.setSelectionRange(0, ta.value.length);
+              const ok = document.execCommand('copy'); document.body.removeChild(ta);
+              return success || ok;
+            } catch(_) {}
+            try {
+              const r = await fetch('/clipboard', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ text: val }) });
+              const j = r.ok ? await r.json() : { success:false };
+              return !!(j && j.success);
+            } catch(_) { return false; }
+          };
+
+          performCopy(value).then((copied) => showCopyTooltip(buttonEl, copied)).catch(() => showCopyTooltip(buttonEl, false));
+        }
+
+        function showCopyTooltip(button, ok) {
+          const icon = button.querySelector('i'); const prev = icon ? icon.outerHTML : '';
+          if (icon) icon.className = ok ? 'bi bi-check' : 'bi bi-x';
+          button.classList.toggle('btn-success', !!ok);
+          button.classList.toggle('btn-danger', !ok);
+          button.classList.remove('btn-outline-secondary');
+
+          const t = bootstrap.Tooltip.getOrCreateInstance(button);
+          const orig = button.getAttribute('data-bs-original-title') || button.getAttribute('title') || '';
+          const msg = ok ? 'Скопировано!' : 'Не удалось';
+          button.setAttribute('data-bs-original-title', msg);
+          if (typeof t.setContent === 'function') t.setContent({ '.tooltip-inner': msg });
+          try { t.show(); } catch(_) {}
+          setTimeout(() => {
+            if (icon && prev) icon.outerHTML = prev;
+            button.classList.remove('btn-success','btn-danger');
+            button.classList.add('btn-outline-secondary');
+            if (orig) { button.setAttribute('data-bs-original-title', orig); if (typeof t.setContent === 'function') t.setContent({ '.tooltip-inner': orig }); } else { button.removeAttribute('data-bs-original-title'); }
+            try { t.hide(); } catch(_) {}
+          }, 1000);
+        }
 
     </script>
     {% block scripts %}{% endblock %}
