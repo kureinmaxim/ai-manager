@@ -27,6 +27,12 @@
 - [Разработка](#-разработка)
 - [Лицензия](#-лицензия)
 
+## ⬇️ Скачать
+
+- Последний релиз: [Latest Release](https://github.com/kureinmaxim/ai-manager/releases/latest)
+- Прямая ссылка (v5.5.5, macOS DMG): [AllManagerC_Installer.dmg](https://github.com/kureinmaxim/ai-manager/releases/download/v5.5.5/AllManagerC_Installer.dmg)
+- SHA256(DMG): `760bfa0693114a187e1642d3c6c123af5028f5c5d632f1297131a26d463c9841`
+
 ## 🚀 Установка
 
 ### Требования
