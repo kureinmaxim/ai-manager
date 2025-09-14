@@ -5,7 +5,7 @@
     "release_date": "13.09.2025",
     "developer": "Разработчик",
     "description": "Менеджер сервисов с шифрованием данных",
-    "last_updated": "2025-09-13"
+    "last_updated": "2025-09-14"
   },
   "service_urls": {
     "ip_check_api": "https://ipinfo.io/{ip}/json",

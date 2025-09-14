@@ -26,6 +26,16 @@ import sys
 import socket
 import time
 
+# Handle Windows console encoding for non-encodable characters (e.g., emojis)
+try:
+    if os.name == 'nt':
+        for _name in ('stdout', 'stderr'):
+            _stream = getattr(sys, _name, None)
+            if _stream is not None and hasattr(_stream, 'reconfigure'):
+                _stream.reconfigure(errors='replace')
+except Exception:
+    pass
+
 # Улучшенная загрузка .env файла для работы в дистрибутиве
 def load_env_file():
     """Загружает .env файл из различных возможных мест."""

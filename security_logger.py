@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 Модуль для логирования событий безопасности в AI Manager.
 """
@@ -9,15 +9,22 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+# Добавлена кроссплатформенная функция определения директории данных приложения
+def _resolve_app_data_dir() -> Path:
+    if getattr(sys, 'frozen', False):
+        if sys.platform == 'win32':
+            return Path(os.environ.get('APPDATA', str(Path.home()))) / 'AllManagerC'
+        elif sys.platform == 'darwin':
+            return Path.home() / 'Library' / 'Application Support' / 'AllManagerC'
+        else:
+            return Path.home() / '.local' / 'share' / 'AllManagerC'
+    # Режим разработки — текущая директория проекта
+    return Path.cwd()
+
 def setup_security_logger():
     """Настраивает логгер для событий безопасности."""
-    # Определяем директорию для логов
-    if getattr(sys, 'frozen', False):
-        # Если приложение упаковано (PyInstaller)
-        app_data_dir = Path.home() / 'Library' / 'Application Support' / 'AiManager'
-    else:
-        # Если приложение запущено в режиме разработки
-        app_data_dir = Path.cwd()
+    # Определяем директорию для логов (кроссплатформенно)
+    app_data_dir = _resolve_app_data_dir()
     
     # Создаем директорию для логов
     log_dir = app_data_dir / 'logs'
@@ -66,47 +73,35 @@ def log_security_event(event_type, details, ip_address=None, user_agent=None):
     # Логируем событие
     logger.info(message)
     
-    # Также выводим в консоль для отладки
-    print(f"�� SECURITY: {message}")
+    # Также выводим в консоль для отладки (исправлен символ)
+    print(f"🔒 SECURITY: {message}")
 
 def log_login_attempt(success, username=None, ip_address=None):
-    """Логирует попытку входа."""
     status = "SUCCESS" if success else "FAILED"
     details = f"Login {status}"
     if username:
         details += f" - User: {username}"
-    
     log_security_event("LOGIN_ATTEMPT", details, ip_address)
 
 def log_data_export(filename, ip_address=None):
-    """Логирует экспорт данных."""
     log_security_event("DATA_EXPORT", f"File: {filename}", ip_address)
 
 def log_data_import(filename, ip_address=None):
-    """Логирует импорт данных."""
     log_security_event("DATA_IMPORT", f"File: {filename}", ip_address)
 
 def log_key_change(operation, ip_address=None):
-    """Логирует изменение ключа шифрования."""
     log_security_event("KEY_CHANGE", f"Operation: {operation}", ip_address)
 
 def log_service_operation(operation, service_name, ip_address=None):
-    """Логирует операции с сервисами."""
     log_security_event("SERVICE_OPERATION", f"{operation}: {service_name}", ip_address)
 
 def log_error(error_type, error_message, ip_address=None):
-    """Логирует ошибки безопасности."""
     log_security_event("ERROR", f"{error_type}: {error_message}", ip_address)
 
 def get_security_stats():
     """Возвращает статистику безопасности."""
-    # Определяем директорию для логов
-    if getattr(sys, 'frozen', False):
-        # Если приложение упаковано (PyInstaller)
-        app_data_dir = Path.home() / 'Library' / 'Application Support' / 'AiManager'
-    else:
-        # Если приложение запущено в режиме разработки
-        app_data_dir = Path.cwd()
+    # Определяем директорию для логов (кроссплатформенно)
+    app_data_dir = _resolve_app_data_dir()
     
     log_file = app_data_dir / 'logs' / 'security.log'
     if not log_file.exists():
@@ -134,11 +129,8 @@ def get_security_stats():
     return stats
 
 if __name__ == "__main__":
-    # Тестирование логгера
     setup_security_logger()
-    
     log_security_event("TEST", "Testing security logger")
     log_login_attempt(True, "test_user", "127.0.0.1")
     log_data_export("test_export.enc", "127.0.0.1")
-    
     print("Тестирование завершено. Проверьте файл logs/security.log")

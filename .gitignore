@@ -213,3 +213,6 @@ logs/app.log
 uploads/
 temp/
 cache/ 
+
+tools/
+MemoryBank/
