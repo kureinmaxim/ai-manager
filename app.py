@@ -100,7 +100,8 @@ load_env_file()
 
 app = Flask(__name__)
 # Уникальное имя cookie для сессии, чтобы не пересекаться с другими приложениями на 127.0.0.1
-app.config['SESSION_COOKIE_NAME'] = 'allmanagerc_session'
+# Делаем имя уникальным для каждого запуска процесса
+app.config['SESSION_COOKIE_NAME'] = f"allmanagerc_session_{os.getpid()}_{uuid.uuid4().hex[:8]}"
 
 # Включаем расширение 'do' для использования в шаблонах Jinja2
 app.jinja_env.add_extension(DoExtension)
@@ -2137,8 +2138,8 @@ def yubikey_login():
     try:
         print(f"🔍 yubikey_login: method={request.method}, yubikey_auth={yubikey_auth is not None}")
         
-        # Проверяем статус сети для передачи в шаблон
-        is_online = check_internet_connection()
+        # Проверяем статус сети для передачи в шаблон (быстро)
+        is_online = check_internet_connection(timeout=0.5)
         
         if request.method == 'POST':
             otp = request.form.get('otp', '').strip()

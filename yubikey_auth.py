@@ -7,14 +7,34 @@ from datetime import datetime
 import socket
 import re
 
-def check_internet_connection(host="api.yubico.com", port=443, timeout=3):
-    """Проверяет наличие интернет-соединения, пытаясь подключиться к хосту Yubico."""
+def check_internet_connection(timeout=0.5):
+    """
+    Быстрая проверка онлайна:
+    1) TCP к 1.1.1.1:443 (без DNS)
+    2) DNS+TCP к api.yubico.com:443
+    Онлайн только если ОБЕ проверки успешны.
+    """
     try:
         socket.setdefaulttimeout(timeout)
-        socket.socket(socket.AF_INET, socket.SOCK_STREAM).connect((host, port))
+        # 1) Прямая IP-проверка
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s1:
+            if s1.connect_ex(("1.1.1.1", 443)) != 0:
+                print("🔌 IP-проверка 1.1.1.1:443 неуспешна")
+                return False
+        # 2) DNS+TCP к api.yubico.com
+        host = "api.yubico.com"
+        try:
+            addr = socket.gethostbyname(host)
+        except socket.gaierror as e:
+            print(f"🔌 DNS ошибка для {host}: {e}")
+            return False
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s2:
+            if s2.connect_ex((addr, 443)) != 0:
+                print("🔌 TCP-подключение к api.yubico.com:443 неуспешно")
+                return False
         return True
-    except (socket.error, socket.timeout) as ex:
-        print(f"🔌 Интернет-соединение отсутствует: {ex}")
+    except Exception as ex:
+        print(f"🔌 Ошибка проверки онлайна: {ex}")
         return False
 
 class YubiKeyAuth:
@@ -134,45 +154,48 @@ class YubiKeyAuth:
             return False
     
     def verify_otp(self, otp):
-        """Гибридная проверка: сначала статические пароли, потом онлайн."""
+        """
+        Строгая проверка по режиму:
+        - Онлайн: принимаем ТОЛЬКО динамический OTP (44 символа ModHex) и валидируем через API.
+                  Статические пароли в онлайн-режиме отклоняются.
+        - Оффлайн: принимаем ТОЛЬКО статический пароль из списка, динамический OTP отклоняем.
+        """
         if not otp:
             return False, "OTP не может быть пустым"
 
-        # Сначала проверяем статические пароли (всегда)
-        if self.static_passwords and otp in self.static_passwords:
-            print("✅ Статический пароль успешно проверен.")
-            session['yubikey_authenticated'] = True
-            session['offline_auth'] = True # Ставим флаг для отображения в UI
-            return True, "Офлайн-пароль подтвержден"
+        online = check_internet_connection()
 
-        # Если статический пароль не подошел, проверяем онлайн-ключи
-        if check_internet_connection():
-            # Строгая проверка формата для онлайн-ключа (YubiKey OTP)
-            # Он должен состоять только из 44 символов ModHex.
-            if not re.match(r'^[cbdefghijklnrtuv]{44}$', otp):
-                print("❌ Неверный формат онлайн OTP и неверный офлайн-пароль")
-                return False, "Неверный формат онлайн OTP и неверный офлайн-пароль"
-
+        if online:
+            # Онлайн режим: запрещаем статические пароли
+            if self.static_passwords and otp in self.static_passwords:
+                return False, "Статические пароли запрещены в онлайн-режиме"
+            # Требуем строгий формат YubiKey OTP (44 символа ModHex)
+            if not re.fullmatch(r'[cbdefghijklnrtuv]{44}', otp):
+                return False, "Неверный формат динамического OTP"
             if not self.keys:
                 return False, "Онлайн-ключи не настроены"
             for key_data in self.keys:
                 try:
-                    if not key_data.get('client_id') or not key_data.get('secret_key'):
+                    cid, sk = key_data.get('client_id'), key_data.get('secret_key')
+                    if not cid or not sk:
                         continue
-                    
-                    client = Yubico(key_data['client_id'], key_data['secret_key'])
+                    client = Yubico(cid, sk)
                     if client.verify(otp):
-                        print(f"✅ Онлайн OTP успешно проверен ключом: {key_data.get('name', 'Неизвестный')}")
                         session['yubikey_authenticated'] = True
+                        session.pop('offline_auth', None)
                         return True, "Онлайн-пароль подтвержден"
                 except (InvalidClientIdError, SignatureVerificationError, YubicoError) as e:
                     print(f"⚠️ Ошибка проверки ключа {key_data.get('name', 'Неизвестный')}: {e}")
                     continue
-            return False, "Неверный онлайн OTP"
+            return False, "Неверный динамический OTP"
         else:
+            # Офлайн режим: принимаем только статические пароли
             if not self.static_passwords:
                 return False, "Статические пароли не настроены"
-            print("❌ Статический пароль неверный или не задан.")
+            if otp in self.static_passwords:
+                session['yubikey_authenticated'] = True
+                session['offline_auth'] = True
+                return True, "Офлайн-пароль подтвержден"
             return False, "Неверный офлайн-пароль"
     
 
@@ -254,10 +277,17 @@ def init_yubikey_auth(app_data_dir):
         static_passwords_str = os.getenv('YUBIKEY_STATIC_PASSWORDS')
         static_passwords = []
         if static_passwords_str:
-            static_passwords = [p.strip() for p in static_passwords_str.split(',')]
+            static_passwords = [p.strip() for p in static_passwords_str.split(',') if p.strip()]
             print(f"🤫 {len(static_passwords)} статических паролей YubiKey загружено.")
 
         yubikey_auth = YubiKeyAuth(app_data_dir, static_passwords)
+        # Если статические пароли заданы, включаем защиту даже без онлайн-ключей
+        if static_passwords and not yubikey_auth.enabled:
+            yubikey_auth.enabled = True
+            try:
+                yubikey_auth.save_config()
+            except Exception:
+                pass
         print(f"✅ YubiKey инициализирован: enabled={yubikey_auth.enabled}, keys={len(yubikey_auth.keys)}")
         return yubikey_auth 
     except Exception as e:
