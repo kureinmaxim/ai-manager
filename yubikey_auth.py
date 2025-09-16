@@ -40,12 +40,15 @@ def check_internet_connection(timeout=0.5):
 class YubiKeyAuth:
     def __init__(self, app_data_dir, static_passwords=None):
         self.config_file = Path(app_data_dir) / 'yubikey_config.json'
+        self.app_data_dir = Path(app_data_dir)
         self.keys = []  # Список ключей вместо одного
         self.enabled = False
         self.static_passwords = static_passwords or []
         
         # Система защиты от перебора секретного входа
-
+        self.secret_login_attempts = 0
+        self.secret_login_blocked_until = 0
+        self.secret_login_block_duration = 60
         
         self.load_config()
     
@@ -107,6 +110,85 @@ class YubiKeyAuth:
         except Exception as e:
             print(f"❌ Ошибка сохранения YubiKey: {e}")
             raise
+
+    # --- СЕКРЕТНЫЙ PIN ---
+    def _config_json_path(self) -> Path:
+        return self.app_data_dir / 'config.json'
+
+    def _read_app_config(self) -> dict:
+        path = self._config_json_path()
+        try:
+            if not path.exists():
+                return {}
+            with open(path, 'r', encoding='utf-8') as f:
+                return json.load(f) or {}
+        except Exception as e:
+            print(f"⚠️ Ошибка чтения config.json: {e}")
+            return {}
+
+    def _write_app_config(self, data: dict) -> bool:
+        path = self._config_json_path()
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with open(path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            return True
+        except Exception as e:
+            print(f"❌ Ошибка записи config.json: {e}")
+            return False
+
+    def get_secret_pin(self) -> str:
+        cfg = self._read_app_config()
+        return (cfg.get('secret_pin') or {}).get('current_pin') or ''
+
+    def change_secret_pin(self, old_pin: str, new_pin: str):
+        try:
+            if not old_pin or not new_pin:
+                return False, 'PIN не задан'
+            if len(new_pin) < 4:
+                return False, 'PIN >= 4 символов'
+            if old_pin != self.get_secret_pin():
+                return False, 'Старый PIN неверен'
+            cfg = self._read_app_config()
+            cfg.setdefault('secret_pin', {})['current_pin'] = new_pin
+            if self._write_app_config(cfg):
+                return True, 'PIN изменён'
+            return False, 'Ошибка сохранения PIN'
+        except Exception as e:
+            return False, f'Ошибка: {e}'
+
+    # Блокировки
+    def is_secret_login_blocked(self) -> bool:
+        import time
+        return time.time() < self.secret_login_blocked_until
+
+    def get_secret_login_block_remaining(self) -> int:
+        import time
+        remaining = int(self.secret_login_blocked_until - time.time())
+        return max(0, remaining)
+
+    def block_secret_login(self):
+        import time
+        self.secret_login_blocked_until = time.time() + self.secret_login_block_duration
+        self.secret_login_attempts = 0
+
+    def secret_authenticate(self, pin: str):
+        try:
+            if self.is_secret_login_blocked():
+                return False, f'Блокировка {self.get_secret_login_block_remaining()} сек'
+            if not pin:
+                return False, 'Введите PIN'
+            if pin == self.get_secret_pin():
+                self.secret_login_attempts = 0
+                return True, 'Успех'
+            self.secret_login_attempts += 1
+            if self.secret_login_attempts >= 3:
+                self.block_secret_login()
+                return False, f'Слишком много попыток. Блокировка {self.secret_login_block_duration} сек'
+            return False, 'Неверный PIN'
+        except Exception as e:
+            print(f"⚠️ Ошибка в secret_authenticate: {e}")
+            return False, f'Ошибка аутентификации: {e}'
     
     def add_key(self, client_id, secret_key, name=None):
         """Добавляет новый YubiKey."""

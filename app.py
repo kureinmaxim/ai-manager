@@ -232,8 +232,19 @@ elif bundle_config is not None and user_config is not None:
         except IOError as e:
             print(f"Ошибка сохранения обновленного конфига: {e}")
     else:
-        # Версия не новее, используем конфиг пользователя как есть
+        # Версия не новее: используем конфиг пользователя, но синхронизируем developer при расхождении
         final_config = user_config
+        try:
+            b_dev = (bundle_config.get('app_info') or {}).get('developer')
+            u_dev = (user_config.get('app_info') or {}).get('developer')
+            if b_dev and u_dev != b_dev:
+                user_config.setdefault('app_info', {})['developer'] = b_dev
+                with open(user_config_path, 'w', encoding='utf-8') as f:
+                    json.dump(user_config, f, indent=2, ensure_ascii=False)
+                final_config = user_config
+                print(f"🔄 Синхронизировано имя разработчика из бандла: {b_dev}")
+        except Exception as e:
+            print(f"⚠️ Не удалось синхронизировать developer: {e}")
 else:
     # Случай 3: Используем конфиг пользователя (или пустой, если его нет и нет бандла)
     final_config = user_config if user_config is not None else {}
@@ -246,6 +257,28 @@ else:
 # Загрузка основной конфигурации в Flask
 app.config.update(final_config)
 
+
+# Гарантируем наличие секретного PIN по умолчанию, если его нет в пользовательском конфиге
+def _ensure_default_secret_pin():
+    try:
+        cfg_path = user_config_path
+        data = {}
+        if cfg_path.exists():
+            try:
+                with open(cfg_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f) or {}
+            except Exception:
+                data = {}
+        # Если ключа нет или пустой PIN — устанавливаем значение по умолчанию
+        current = (data.get('secret_pin') or {}).get('current_pin')
+        if not current:
+            data.setdefault('secret_pin', {})['current_pin'] = '1234'
+            with open(cfg_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"⚠️ Не удалось гарантировать секретный PIN: {e}")
+
+_ensure_default_secret_pin()
 
 # Если `app_info` все еще отсутствует (например, при самом первом запуске в dev), добавляем заглушку
 if 'app_info' not in app.config:
@@ -985,6 +1018,43 @@ def add_security_headers(response):
     response.headers['Expires'] = '0'
     response.headers.add("Access-Control-Allow-Origin", "*")
     return response
+
+# --- Secret PIN endpoints ---
+@app.route('/secret/login', methods=['POST'])
+def secret_login():
+    try:
+        if not yubikey_auth:
+            return jsonify({'success': False, 'message': 'YubiKey модуль не доступен'}), 400
+        if yubikey_auth.is_secret_login_blocked():
+            remaining = yubikey_auth.get_secret_login_block_remaining()
+            return jsonify({'success': False, 'message': f'Блокировка {remaining} сек', 'blocked': True, 'remaining_seconds': remaining}), 429
+        pin = request.form.get('pin','').strip()
+        if not pin:
+            return jsonify({'success': False, 'message': 'Введите PIN'}), 400
+        success, message = yubikey_auth.secret_authenticate(pin)
+        status = 200 if success else 400
+        if success:
+            session['yubikey_authenticated'] = True
+        return jsonify({'success': success, 'message': message}), status
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Ошибка: {e}'}), 500
+
+@app.route('/secret/change_pin', methods=['POST'])
+def change_secret_pin():
+    try:
+        if not yubikey_auth:
+            return jsonify({'success': False, 'message': 'YubiKey модуль не доступен'}), 400
+        old_pin = request.form.get('old_pin','').strip()
+        new1 = request.form.get('new_pin1','').strip()
+        new2 = request.form.get('new_pin2','').strip()
+        if new1 != new2:
+            return jsonify({'success': False, 'message': 'Новые PIN-коды не совпадают'})
+        if not new1 or len(new1) < 4:
+            return jsonify({'success': False, 'message': 'PIN >= 4 символов'})
+        success, message = yubikey_auth.change_secret_pin(old_pin, new1)
+        return jsonify({'success': success, 'message': message})
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Ошибка: {e}'}), 500
 
 @app.errorhandler(500)
 def internal_error(error):
