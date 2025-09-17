@@ -274,3 +274,19 @@ pyinstaller --onefile --windowed run_app.py
 ## Одновременный запуск нескольких приложений
 
 Начиная с v5.5.4, приложение автоматически выбирает свободный локальный порт (предпочитая 5050/5051/5060/5070/5080) и использует уникальное имя cookie сессии `allmanager_session`. Это позволяет запускать одновременно, например, `AllManager.app` и `VPNServer.app`, без конфликтов портов и "перемешивания" сессий. 
+
+## Установка и где хранятся данные
+
+- Windows (инсталлятор):
+  - Сборка: соберите приложение PyInstaller командой (см. `build_windows.py`), затем запустите сборку инсталлятора Inno Setup, открыв `AllManagerC.iss` в Inno Setup Compiler и нажав Build.
+  - Путь установки по умолчанию: `C:\Program Files\AllManagerC`.
+  - Пользовательские данные (не удаляются при удалении программы):
+    - Конфиг и служебные файлы: `%APPDATA%\AllManagerC\` (например: `C:\Users\<User>\AppData\Roaming\AllManagerC\`)
+    - Активный файл данных: `%APPDATA%\AllManagerC\data\ai_services*.enc`
+    - Загрузки (иконки, чеки): `%APPDATA%\AllManagerC\uploads\`
+    - `.env` при необходимости также можно хранить здесь.
+  - PIN разработчика и Secret PIN:
+    - Считывается из переменных окружения `DEV_PIN`/`DEVELOPER_PIN` либо из `%APPDATA%\AllManagerC\config.json` в `security.secret_pin.current_pin` (при смене PIN этот ключ обновляется автоматически).
+
+- macOS (для справки):
+  - Данные хранятся в `~/Library/Application Support/AllManagerC/` (если вы собираете .app). 

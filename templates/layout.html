@@ -93,9 +93,119 @@
 
     <script src="{{ url_for('static', filename='vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
     <script>
+        // Секретный вход по двойному клику: модалка с вкладками Вход/Сменить PIN
+        document.addEventListener('DOMContentLoaded', function() {
+            const dev = document.getElementById('developer-name');
+            if (!dev) return;
+            let clicks = 0, timer = null;
+            dev.addEventListener('click', function() {
+                clicks++;
+                if (clicks === 1) {
+                    timer = setTimeout(() => { clicks = 0; }, 300);
+                } else if (clicks === 2) {
+                    clearTimeout(timer); clicks = 0;
+                    showSecretLoginModal();
+                }
+            });
+        });
+
+        function showSecretLoginModal() {
+            const modal = document.createElement('div');
+            modal.className = 'modal fade';
+            modal.id = 'secretLoginModal';
+            modal.innerHTML = `
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">🔐 Секретный вход</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <ul class="nav nav-tabs" role="tablist">
+                                <li class="nav-item"><button class="nav-link active" id="login-tab" data-bs-toggle="tab" data-bs-target="#login-pane" type="button" role="tab">Вход</button></li>
+                                <li class="nav-item"><button class="nav-link" id="change-pin-tab" data-bs-toggle="tab" data-bs-target="#change-pin-pane" type="button" role="tab">Сменить PIN</button></li>
+                            </ul>
+                            <div class="tab-content">
+                                <div class="tab-pane fade show active p-3" id="login-pane" role="tabpanel">
+                                    <p class="text-muted mb-3">Введите PIN-код для секретного входа</p>
+                                    <div class="mb-3">
+                                        <label for="secretPin" class="form-label">PIN-код</label>
+                                        <input type="password" class="form-control" id="secretPin" maxlength="4" autocomplete="off">
+                                    </div>
+                                    <div id="secretLoginMessage" class="alert" style="display:none;"></div>
+                                </div>
+                                <div class="tab-pane fade p-3" id="change-pin-pane" role="tabpanel">
+                                    <p class="text-muted mb-3">Смените PIN-код</p>
+                                    <form id="changePinForm">
+                                        <div class="mb-3"><label for="oldPin" class="form-label">Старый PIN</label><input type="password" class="form-control" id="oldPin" name="old_pin" maxlength="4" required></div>
+                                        <div class="mb-3"><label for="newPin1" class="form-label">Новый PIN</label><input type="password" class="form-control" id="newPin1" name="new_pin1" maxlength="4" required></div>
+                                        <div class="mb-3"><label for="newPin2" class="form-label">Подтвердите новый PIN</label><input type="password" class="form-control" id="newPin2" name="new_pin2" maxlength="4" required></div>
+                                    </form>
+                                    <div id="changePinMessage" class="alert" style="display:none;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                            <button type="button" class="btn btn-primary" id="modalSubmitBtn">Войти</button>
+                        </div>
+                    </div>
+                </div>`;
+            document.body.appendChild(modal);
+            const bsModal = new bootstrap.Modal(modal); bsModal.show();
+            setTimeout(() => { document.getElementById('secretPin')?.focus(); }, 300);
+
+            const submitBtn = document.getElementById('modalSubmitBtn');
+            const toLogin = () => { submitBtn.textContent='Войти'; submitBtn.className='btn btn-primary'; submitBtn.onclick=submitSecretLogin; };
+            const toChange = () => { submitBtn.textContent='Сменить PIN'; submitBtn.className='btn btn-warning'; submitBtn.onclick=submitChangePin; };
+            document.getElementById('login-tab').addEventListener('click', toLogin);
+            document.getElementById('change-pin-tab').addEventListener('click', toChange);
+            toLogin();
+
+            // Enter для отправки PIN
+            const pinInput = document.getElementById('secretPin');
+            if (pinInput) {
+                pinInput.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter') { e.preventDefault(); submitSecretLogin(); }
+                });
+            }
+
+            modal.addEventListener('hidden.bs.modal', () => { document.body.removeChild(modal); });
+        }
+
+        function showMsg(elId, text, type) {
+            const div = document.getElementById(elId);
+            div.className = `alert alert-${type}`; div.textContent = text; div.style.display = 'block';
+        }
+
+        function submitSecretLogin() {
+            const pin = document.getElementById('secretPin').value.trim();
+            if (!pin) return showMsg('secretLoginMessage','Введите PIN-код','danger');
+            const btn = document.getElementById('modalSubmitBtn'); btn.disabled = true; btn.textContent = 'Проверка...';
+            fetch('/secret/login', { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:`pin=${encodeURIComponent(pin)}` })
+                .then(r=>r.json()).then(d=>{
+                    if (d.success) { showMsg('secretLoginMessage', d.message || 'Успех','success'); setTimeout(()=>location.reload(), 700); }
+                    else if (d.blocked) { showMsg('secretLoginMessage', `Блокировка: ${d.remaining_seconds} сек.`, 'warning'); }
+                    else { showMsg('secretLoginMessage', d.message || 'Ошибка', 'danger'); }
+                }).catch(()=>showMsg('secretLoginMessage','Ошибка сети','danger'))
+                .finally(()=>{ btn.disabled=false; btn.textContent='Войти'; });
+        }
+
+        function submitChangePin() {
+            const form = document.getElementById('changePinForm'); const fd = new FormData(form);
+            const n1 = fd.get('new_pin1')||'', n2 = fd.get('new_pin2')||'';
+            if (!fd.get('old_pin') || !n1 || !n2) return showMsg('changePinMessage','Заполните все поля','danger');
+            if (n1 !== n2) return showMsg('changePinMessage','Новые PIN-коды не совпадают','danger');
+            if (String(n1).length < 4) return showMsg('changePinMessage','PIN минимум 4 символа','danger');
+            const btn = document.getElementById('modalSubmitBtn'); btn.disabled = true; btn.textContent='Проверка...';
+            fetch('/secret/change_pin', { method:'POST', body:fd })
+                .then(r=>r.json()).then(d=>{ showMsg('changePinMessage', d.success ? 'PIN изменён' : (d.message||'Ошибка'), d.success?'success':'danger'); })
+                .catch(()=>showMsg('changePinMessage','Ошибка сети','danger'))
+                .finally(()=>{ btn.disabled=false; btn.textContent='Сменить PIN'; });
+        }
         // Применить сохранённый масштаб при загрузке
         document.addEventListener('DOMContentLoaded', function() {
-            const savedZoom = getCookie('ui_zoom') || '100';  // По умолчанию 100%
+            const savedZoom = getCookie('ui_zoom') || '80';  // По умолчанию 80%
             document.body.style.zoom = savedZoom + '%';
 
             // Инициализация dropdown

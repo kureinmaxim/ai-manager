@@ -23,10 +23,13 @@ class YubiKeyAuth:
         self.keys = []  # Список ключей вместо одного
         self.enabled = False
         self.static_passwords = static_passwords or []
-        
-        # Система защиты от перебора секретного входа
+        # Секретный PIN и антибрут-логика (в файле config.json приложения)
+        self.app_data_dir = Path(app_data_dir)
+        self.app_config_path = self.app_data_dir / 'config.json'
+        self.secret_login_attempts = 0
+        self.secret_login_blocked_until = 0
+        self.secret_login_block_duration = 30  # секунд
 
-        
         self.load_config()
     
     def load_config(self):
@@ -118,6 +121,111 @@ class YubiKeyAuth:
     def get_keys(self):
         """Возвращает список всех ключей."""
         return self.keys
+
+    # ====== СЕКРЕТНЫЙ PIN: хранение и антибрут ======
+    def _load_app_config(self):
+        try:
+            if not self.app_config_path.exists():
+                return {}
+            with open(self.app_config_path, 'r', encoding='utf-8') as f:
+                return json.load(f) or {}
+        except Exception:
+            return {}
+
+    def _save_app_config(self, cfg: dict):
+        try:
+            self.app_config_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(self.app_config_path, 'w', encoding='utf-8') as f:
+                json.dump(cfg, f, indent=2, ensure_ascii=False)
+            return True
+        except Exception as e:
+            print(f"❌ Ошибка сохранения config.json: {e}")
+            return False
+
+    def get_secret_pin(self) -> str:
+        try:
+            import os
+            env_pin = os.getenv('DEV_PIN') or os.getenv('DEVELOPER_PIN')
+            if env_pin and str(env_pin).strip():
+                return str(env_pin).strip()
+        except Exception:
+            pass
+        cfg = self._load_app_config()
+        sec = cfg.get('security') or {}
+        pin = sec.get('secret_pin', {}).get('current_pin') if isinstance(sec.get('secret_pin'), dict) else None
+        if not pin:
+            # fallback на security.dev_pin или '1234'
+            pin = sec.get('dev_pin') or '1234'
+        return str(pin)
+
+    def change_secret_pin(self, old_pin: str, new_pin: str):
+        try:
+            current = self.get_secret_pin()
+            if str(old_pin) != str(current):
+                return False, 'Старый PIN неверен'
+            cfg = self._load_app_config()
+            if 'security' not in cfg or not isinstance(cfg.get('security'), dict):
+                cfg['security'] = {}
+            # Обновляем новую структуру
+            cfg['security']['secret_pin'] = {
+                'current_pin': str(new_pin),
+                'updated_at': datetime.now().isoformat()
+            }
+            # Удаляем устаревший dev_pin, чтобы не путал
+            if 'dev_pin' in cfg['security']:
+                cfg['security'].pop('dev_pin', None)
+            ok = self._save_app_config(cfg)
+            if not ok:
+                return False, 'Не удалось сохранить PIN'
+            # Сбросить попытки после смены
+            self.secret_login_attempts = 0
+            self.secret_login_blocked_until = 0
+            return True, 'PIN изменён'
+        except Exception as e:
+            return False, f'Ошибка: {e}'
+
+    def is_secret_login_blocked(self) -> bool:
+        try:
+            import time
+            return time.time() < float(self.secret_login_blocked_until or 0)
+        except Exception:
+            return False
+
+    def get_secret_login_block_remaining(self) -> int:
+        try:
+            import time
+            remaining = int((self.secret_login_blocked_until or 0) - time.time())
+            return max(0, remaining)
+        except Exception:
+            return 0
+
+    def block_secret_login(self):
+        try:
+            import time
+            self.secret_login_blocked_until = time.time() + int(self.secret_login_block_duration)
+        except Exception:
+            pass
+
+    def secret_authenticate(self, pin: str):
+        try:
+            if self.is_secret_login_blocked():
+                return False, f"Блокировка {self.get_secret_login_block_remaining()} сек"
+            if not pin:
+                return False, 'Введите PIN'
+            if str(pin).strip() == str(self.get_secret_pin()).strip():
+                self.secret_login_attempts = 0
+                session['yubikey_authenticated'] = True
+                return True, 'Успех'
+            # Неверный PIN
+            self.secret_login_attempts += 1
+            if self.secret_login_attempts >= 3:
+                self.block_secret_login()
+                self.secret_login_attempts = 0
+                return False, 'Слишком много попыток. Временная блокировка.'
+            return False, 'Неверный PIN'
+        except Exception as e:
+            return False, f'Ошибка аутентификации: {e}'
+
     
     def is_authenticated(self):
         """Проверяет, аутентифицирован ли пользователь с улучшенной обработкой ошибок."""
@@ -134,7 +242,7 @@ class YubiKeyAuth:
             return False
     
     def verify_otp(self, otp):
-        """Гибридная проверка: сначала статические пароли, потом онлайн."""
+        """Гибридная проверка: сначала статические пароли, потом онлайн с понятными ошибками."""
         if not otp:
             return False, "OTP не может быть пустым"
 
@@ -142,32 +250,73 @@ class YubiKeyAuth:
         if self.static_passwords and otp in self.static_passwords:
             print("✅ Статический пароль успешно проверен.")
             session['yubikey_authenticated'] = True
-            session['offline_auth'] = True # Ставим флаг для отображения в UI
+            session['offline_auth'] = True
             return True, "Офлайн-пароль подтвержден"
 
         # Если статический пароль не подошел, проверяем онлайн-ключи
         if check_internet_connection():
-            # Строгая проверка формата для онлайн-ключа (YubiKey OTP)
-            # Он должен состоять только из 44 символов ModHex.
+            # Строгая проверка формата для онлайн-ключа (YubiKey OTP): 44 символа ModHex
             if not re.match(r'^[cbdefghijklnrtuv]{44}$', otp):
                 print("❌ Неверный формат онлайн OTP и неверный офлайн-пароль")
                 return False, "Неверный формат онлайн OTP и неверный офлайн-пароль"
 
             if not self.keys:
                 return False, "Онлайн-ключи не настроены"
+
+            # Таблица расшифровки ответов Yubico в понятные сообщения
+            status_to_message = {
+                'REPLAYED_OTP': "Код уже был использован. Нажмите кнопку ещё раз (сгенерируйте новый).",
+                'BAD_OTP': "Неверный одноразовый код. Нажмите кнопку на ключе ещё раз.",
+                'NO_SUCH_CLIENT': "Неверный Client ID. Проверьте, что в настройках указан числовой Client ID из кабинета Yubico.",
+                'BAD_SIGNATURE': "Неверный Secret Key. Проверьте Secret Key, скопируйте заново из кабинета Yubico.",
+                'MISSING_PARAMETER': "Отсутствуют параметры запроса. Проверьте, что сохранены Client ID и Secret Key.",
+                'BACKEND_ERROR': "Сбой на стороне Yubico. Повторите попытку позже.",
+                'REPLAYED_REQUEST': "Повтор запроса. Попробуйте ещё раз.",
+                'NOT_ENOUGH_ANSWERS': "Недостаточно ответов сервера Yubico. Повторите попытку позже.",
+                'OPERATION_NOT_ALLOWED': "OTP-операция запрещена для вашего ключа. Проверьте настройку слота OTP."
+            }
+
             for key_data in self.keys:
                 try:
-                    if not key_data.get('client_id') or not key_data.get('secret_key'):
+                    client_id = key_data.get('client_id')
+                    secret_key = key_data.get('secret_key')
+                    if not client_id or not secret_key:
                         continue
-                    
-                    client = Yubico(key_data['client_id'], key_data['secret_key'])
-                    if client.verify(otp):
+
+                    client = Yubico(client_id, secret_key)
+
+                    # Запрашиваем подробный ответ от YubiCloud
+                    response = client.verify(otp, return_response=True)
+                    status = getattr(response, 'status', None) if response is not None else None
+
+                    if status == 'OK':
                         print(f"✅ Онлайн OTP успешно проверен ключом: {key_data.get('name', 'Неизвестный')}")
                         session['yubikey_authenticated'] = True
                         return True, "Онлайн-пароль подтвержден"
-                except (InvalidClientIdError, SignatureVerificationError, YubicoError) as e:
-                    print(f"⚠️ Ошибка проверки ключа {key_data.get('name', 'Неизвестный')}: {e}")
-                    continue
+
+                    # Если статус присутствует и не OK — вернём понятное сообщение
+                    if status:
+                        human_message = status_to_message.get(status, f"Ошибка Yubico: {status}")
+                        print(f"⚠️ Верификация не пройдена ({status}): {human_message}")
+                        return False, human_message
+
+                    # На всякий случай: если библиотека вернула неуспех без статуса
+                    print("⚠️ Верификация не удалась без кода статуса")
+                    return False, "Не удалось подтвердить OTP. Попробуйте ещё раз."
+
+                except InvalidClientIdError:
+                    return False, "Неверный Client ID. Проверьте значение в настройках YubiKey."
+                except SignatureVerificationError:
+                    return False, "Неверный Secret Key. Проверьте значение в настройках YubiKey."
+                except YubicoError as e:
+                    msg = str(e) or "YubicoError"
+                    lower_msg = msg.lower()
+                    if 'timeout' in lower_msg or 'timed out' in lower_msg:
+                        return False, "Тайм-аут соединения с YubiCloud. Проверьте интернет и повторите."
+                    if 'network' in lower_msg or 'connection' in lower_msg:
+                        return False, "Нет связи с YubiCloud. Проверьте интернет-соединение."
+                    return False, f"Ошибка Yubico: {msg}"
+
             return False, "Неверный онлайн OTP"
         else:
             if not self.static_passwords:
@@ -222,12 +371,19 @@ def init_yubikey_auth(app_data_dir):
                     possible_paths.append(app_bundle / "Contents" / "Resources" / ".env")
                     
                     # В пользовательской директории
-                    user_env = Path.home() / "Library" / "Application Support" / "AllManager" / ".env"
+                    user_env = Path.home() / "Library" / "Application Support" / "AllManagerC" / ".env"
                     possible_paths.append(user_env)
                     
                     # В директории приложения
                     app_dir = Path(sys.executable).parent
                     possible_paths.append(app_dir / ".env")
+                elif sys.platform == 'win32':
+                    from pathlib import Path as _P
+                    possible_paths.append(_P(os.environ.get('APPDATA', str(Path.home()))) / 'AllManagerC' / '.env')
+                    possible_paths.append(Path(sys.executable).parent / '.env')
+                else:
+                    possible_paths.append(Path.home() / '.local' / 'share' / 'AllManagerC' / '.env')
+                    possible_paths.append(Path(sys.executable).parent / '.env')
             
             # 3. Директория скрипта
             script_dir = Path(__file__).parent

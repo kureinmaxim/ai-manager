@@ -55,14 +55,22 @@ def load_env_file():
             # В .app бандле
             app_bundle = Path(sys.executable).parent.parent.parent
             possible_paths.append(app_bundle / "Contents" / "Resources" / ".env")
-            
             # В пользовательской директории
-            user_env = Path.home() / "Library" / "Application Support" / "AllManager" / ".env"
+            user_env = Path.home() / "Library" / "Application Support" / "AllManagerC" / ".env"
             possible_paths.append(user_env)
-            
             # В директории приложения
             app_dir = Path(sys.executable).parent
             possible_paths.append(app_dir / ".env")
+        elif sys.platform == 'win32':  # Windows
+            # Основной путь для .exe — директория данных пользователя
+            from pathlib import Path as _P
+            possible_paths.append(_P(os.environ.get('APPDATA', str(Path.home()))) / 'AllManagerC' / '.env')
+            # Рядом с исполняемым файлом
+            possible_paths.append(Path(sys.executable).parent / '.env')
+        else:
+            # Linux и др.: ~/.local/share/AllManagerC/.env и рядом с exe
+            possible_paths.append(Path.home() / '.local' / 'share' / 'AllManagerC' / '.env')
+            possible_paths.append(Path(sys.executable).parent / '.env')
     
     # 3. Директория скрипта
     script_dir = Path(__file__).parent
@@ -386,13 +394,27 @@ SECRET_KEY = None
 is_frozen = getattr(sys, 'frozen', False)
 
 if is_frozen:
-    # Если приложение собрано, строим абсолютный путь к .env внутри .app
+    # Если приложение собрано, ищем .env в платформа-зависимых местах
     try:
-        base_path = Path(sys.executable).parent.parent / 'Resources'
-        dotenv_path = base_path / '.env'
-        if dotenv_path.exists():
-            load_dotenv(dotenv_path=dotenv_path)
-            SECRET_KEY = os.getenv("SECRET_KEY")
+        dotenv_candidates = []
+        if sys.platform == 'win32':
+            # Основное место для Windows: директория данных пользователя
+            dotenv_candidates.append(Path(APP_DATA_DIR) / '.env')
+            # Также пробуем рядом с исполняемым файлом
+            dotenv_candidates.append(Path(sys.executable).parent / '.env')
+        elif sys.platform == 'darwin':
+            base_path = Path(sys.executable).parent.parent / 'Resources'
+            dotenv_candidates.append(base_path / '.env')
+        else:
+            # Linux и другие системы
+            dotenv_candidates.append(Path(APP_DATA_DIR) / '.env')
+            dotenv_candidates.append(Path(sys.executable).parent / '.env')
+        for _p in dotenv_candidates:
+            if _p.exists():
+                load_dotenv(dotenv_path=_p)
+                SECRET_KEY = os.getenv("SECRET_KEY")
+                if SECRET_KEY:
+                    break
     except Exception:
         SECRET_KEY = None
 else:
@@ -1230,6 +1252,28 @@ def edit_service(service_id):
 
     # Дешифруем чувствительные данные для отображения в форме
     decrypted_service = copy.deepcopy(service)
+    # Гарантируем наличие вложенных структур для старых записей
+    if 'credentials' not in decrypted_service or not isinstance(decrypted_service.get('credentials'), dict):
+        decrypted_service['credentials'] = {}
+    if 'personal_cabinet' not in decrypted_service or not isinstance(decrypted_service.get('personal_cabinet'), dict):
+        decrypted_service['personal_cabinet'] = {}
+    if 'subscription' not in decrypted_service or not isinstance(decrypted_service.get('subscription'), dict):
+        decrypted_service['subscription'] = {}
+    if 'features' not in decrypted_service or not isinstance(decrypted_service.get('features'), list):
+        decrypted_service['features'] = []
+    if 'gradient_color' not in decrypted_service or not decrypted_service.get('gradient_color'):
+        decrypted_service['gradient_color'] = '#667eea'
+    # Заполняем безопасные значения по умолчанию для полей, используемых шаблоном
+    decrypted_service['subscription'].setdefault('plan_name', '')
+    decrypted_service['subscription'].setdefault('cost_monthly', 0.0)
+    decrypted_service['subscription'].setdefault('currency', 'USD')
+    decrypted_service['subscription'].setdefault('billing_cycle', 'monthly')
+    decrypted_service['subscription'].setdefault('next_payment_date', '')
+    decrypted_service['subscription'].setdefault('auto_renewal', False)
+    decrypted_service['subscription'].setdefault('payment_method', '')
+    decrypted_service['subscription'].setdefault('notes', '')
+    decrypted_service['personal_cabinet'].setdefault('dashboard_url', '')
+    
     decrypted_service['credentials']['username'] = decrypt_data(service.get('credentials', {}).get('username'))
     decrypted_service['credentials']['additional_info'] = decrypt_data(service.get('credentials', {}).get('additional_info'))
     decrypted_service['personal_cabinet']['account_email'] = decrypt_data(service.get('personal_cabinet', {}).get('account_email'))
@@ -1243,6 +1287,8 @@ def edit_service(service_id):
         service['preferred_oauth_method'] = request.form.get('preferred_oauth_method')
         
         # Обновление учетных данных
+        if 'credentials' not in service or not isinstance(service.get('credentials'), dict):
+            service['credentials'] = {}
         service['credentials']['username'] = encrypt_data(request.form.get('username'))
         if request.form.get('password'): # Обновляем пароль, только если он был введен
             service['credentials']['password'] = encrypt_data(request.form.get('password'))
@@ -1261,6 +1307,8 @@ def edit_service(service_id):
         }
         
         # Обновление личного кабинета
+        if 'personal_cabinet' not in service or not isinstance(service.get('personal_cabinet'), dict):
+            service['personal_cabinet'] = {}
         service['personal_cabinet']['dashboard_url'] = request.form.get('dashboard_url')
         service['personal_cabinet']['account_email'] = encrypt_data(request.form.get('account_email'))
         
@@ -2150,6 +2198,15 @@ def yubikey_login():
         # Проверяем статус сети для передачи в шаблон
         is_online = check_internet_connection()
         
+        # Если YubiKey включен, но ключи не настроены, направляем в настройки
+        try:
+            if yubikey_auth and yubikey_auth.enabled and len(yubikey_auth.get_keys()) == 0:
+                from flask import flash
+                flash('YubiKey ключи не настроены. Укажите Client ID и Secret Key в разделе «Настройки».', 'warning')
+                return redirect(url_for('settings_page'))
+        except Exception:
+            pass
+        
         if request.method == 'POST':
             otp = request.form.get('otp', '').strip()
             print(f"🔍 Проверка OTP: {otp[:10]}... (длина: {len(otp)})")
@@ -2232,7 +2289,80 @@ def yubikey_remove_key(key_index):
 def yubikey_instructions():
     return render_template('yubikey_instructions.html')
 
+# Конфигурация PIN разработчика: env -> config.json -> '1234'
+def get_developer_pin() -> str:
+    try:
+        env_pin = os.getenv('DEV_PIN') or os.getenv('DEVELOPER_PIN')
+        if env_pin and str(env_pin).strip():
+            return str(env_pin).strip()
+        cfg_pin = (app.config.get('security', {}) or {}).get('dev_pin') if isinstance(app.config.get('security'), dict) else None
+        if cfg_pin and str(cfg_pin).strip():
+            return str(cfg_pin).strip()
+    except Exception:
+        pass
+    return '1234'
 
+@app.route('/dev_login', methods=['POST'])
+def dev_login():
+    """Скрытый вход для разработчика по PIN (двойной клик по имени разработчика).
+    При корректном PIN устанавливает yubikey_authenticated=True в сессии.
+    Источник PIN: ENV (DEV_PIN/DEVELOPER_PIN) -> config.json (security.dev_pin) -> '1234'
+    """
+    try:
+        payload = request.get_json(silent=True) or {}
+        pin = payload.get('pin') or request.form.get('pin')
+        expected = get_developer_pin()
+        if str(pin).strip() == expected:
+            session['yubikey_authenticated'] = True
+            try:
+                log_security_event("DEV_LOGIN", "Developer PIN accepted", request.remote_addr)
+            except Exception:
+                pass
+            return jsonify({'success': True})
+        else:
+            try:
+                log_security_event("DEV_LOGIN_FAIL", "Invalid developer PIN", request.remote_addr)
+            except Exception:
+                pass
+            return jsonify({'success': False}), 401
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/secret/login', methods=['POST'])
+def secret_login():
+    try:
+        if not yubikey_auth:
+            return jsonify({'success': False, 'message': 'YubiKey модуль не доступен'}), 400
+        if yubikey_auth.is_secret_login_blocked():
+            remaining = yubikey_auth.get_secret_login_block_remaining()
+            return jsonify({'success': False, 'message': f'Блокировка {remaining} сек', 'blocked': True, 'remaining_seconds': remaining}), 429
+        pin = request.form.get('pin', '').strip()
+        if not pin:
+            return jsonify({'success': False, 'message': 'Введите PIN'}), 400
+        success, message = yubikey_auth.secret_authenticate(pin)
+        if success:
+            session['yubikey_authenticated'] = True
+        status = 200 if success else 400
+        return jsonify({'success': success, 'message': message}), status
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Ошибка: {e}'}), 500
+
+@app.route('/secret/change_pin', methods=['POST'])
+def change_secret_pin():
+    try:
+        if not yubikey_auth:
+            return jsonify({'success': False, 'message': 'YubiKey модуль не доступен'}), 400
+        old_pin = request.form.get('old_pin', '').strip()
+        new1 = request.form.get('new_pin1', '').strip()
+        new2 = request.form.get('new_pin2', '').strip()
+        if new1 != new2:
+            return jsonify({'success': False, 'message': 'Новые PIN-коды не совпадают'})
+        if not new1 or len(new1) < 4:
+            return jsonify({'success': False, 'message': 'PIN >= 4 символов'})
+        success, message = yubikey_auth.change_secret_pin(old_pin, new1)
+        return jsonify({'success': success, 'message': message})
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Ошибка: {e}'}), 500
 
 if __name__ == "__main__":
     try:

@@ -1,16 +1,19 @@
 {
   "SECRET_KEY_FILE": ".env",
   "app_info": {
-    "version": "5.5.5",
-    "release_date": "13.09.2025",
-    "developer": "Разработчик",
+    "version": "5.5.9",
+    "release_date": "17.09.2025",
+    "developer": "Куреин М.Н.",
     "description": "Менеджер сервисов с шифрованием данных",
-    "last_updated": "2025-09-14"
+    "last_updated": "2025-09-17"
   },
   "service_urls": {
     "ip_check_api": "https://ipinfo.io/{ip}/json",
     "general_ip_test": "https://browserleaks.com/ip",
     "general_dns_test": "https://dnsleaktest.com/"
   },
-  "active_data_file": "data/ai_services.json.enc"
+  "active_data_file": "C:\\Project\\ProjectPython\\AiManage-Clean\\data\\ai_services_merged_20250915_130657.enc",
+  "security": {
+    "dev_pin": "1234"
+  }
 }
