@@ -48,11 +48,18 @@
                         {% endif %}
                     {% endwith %}
 
-                    <form method="post">
+                    <form method="post" id="otpForm" novalidate>
                         <div class="mb-3">
                             <label for="otp" class="form-label">YubiKey OTP</label>
-                            <input type="text" name="otp" id="otp" class="form-control form-control-lg" placeholder="Нажмите кнопку на YubiKey" required autofocus maxlength="64">
+                            <input type="text" name="otp" id="otp" class="form-control form-control-lg" placeholder="Нажмите кнопку на YubiKey (раскладка EN)" required autofocus maxlength="64" autocomplete="one-time-code" inputmode="verbatim">
+                            <div class="form-text" id="otpHint">В онлайн‑режиме принимается 44 символа ModHex (только c,b,d,e,f,g,h,i,j,k,l,n,r,t,u,v). Проверьте, что включена английская раскладка.</div>
+                            <div class="invalid-feedback" id="otpError">Введите корректный OTP (44 символа ModHex, раскладка EN).</div>
                         </div>
+                        {% if is_dev and allowed_public_ids %}
+                        <div class="alert alert-secondary py-2 small">
+                            Разрешённые public id: {{ allowed_public_ids|join(', ') }}
+                        </div>
+                        {% endif %}
                         <div class="d-grid">
                             <button type="submit" class="btn btn-primary btn-lg">Войти</button>
                         </div>
@@ -69,26 +76,48 @@
 
 {% block scripts %}
 <script>
+const IS_ONLINE = {{ 'true' if is_online else 'false' }};
 document.addEventListener('DOMContentLoaded', function() {
     const otpInput = document.getElementById('otp');
-    
-    // Проверка формата при вводе
-    otpInput.addEventListener('keyup', function() {
-        const value = this.value;
-        // Разрешаем любой символ, так как статический пароль может быть сложным
-        const isValid = /^[a-zA-Z0-9!"#$%&'()*+,-./:;<=>?@\[\\\]^_`{|}~]{0,64}$/.test(value);
-        
-        if (value.length > 0 && !isValid) {
-            this.classList.add('is-invalid');
+    const otpForm = document.getElementById('otpForm');
+    const otpError = document.getElementById('otpError');
+
+    const MODHEX_RE = /^[cbdefghijklnrtuv]+$/; // допустимые символы ModHex
+    const CYRILLIC_RE = /[А-Яа-яЁё]/;
+
+    function validateOnline(val) {
+        if (!val || CYRILLIC_RE.test(val)) return false;
+        if (!MODHEX_RE.test(val)) return false;
+        if (val.length !== 44) return false;
+        return true;
+    }
+
+    function setInvalid(state) {
+        if (state) { otpInput.classList.add('is-invalid'); } else { otpInput.classList.remove('is-invalid'); }
+    }
+
+    otpInput.addEventListener('input', function() {
+        const value = this.value.trim();
+        if (IS_ONLINE) {
+            setInvalid(value.length > 0 && !validateOnline(value));
         } else {
-            this.classList.remove('is-invalid');
+            // офлайн допускаем любые символы статического пароля
+            setInvalid(false);
         }
-        
-        // Убираем подсветку 'is-valid', так как длина может быть разной
-            this.classList.remove('is-valid');
     });
-    
-    // Фокус на поле ввода при загрузке страницы
+
+    otpForm.addEventListener('submit', function(e) {
+        const value = otpInput.value.trim();
+        if (IS_ONLINE && !validateOnline(value)) {
+            e.preventDefault();
+            setInvalid(true);
+            otpError.textContent = CYRILLIC_RE.test(value)
+                ? 'Раскладка не EN. Введите 44 символа ModHex (только c,b,d,e,f,g,h,i,j,k,l,n,r,t,u,v).'
+                : 'Неверный формат. Нужны ровно 44 символа ModHex.';
+            otpInput.focus();
+        }
+    });
+
     otpInput.focus();
 });
 </script>

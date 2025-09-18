@@ -5,17 +5,68 @@ from yubico_client import Yubico
 from yubico_client.yubico_exceptions import YubicoError, InvalidClientIdError, SignatureVerificationError
 from datetime import datetime
 import socket
+import time
 import re
 
-def check_internet_connection(host="api.yubico.com", port=443, timeout=3):
-    """Проверяет наличие интернет-соединения, пытаясь подключиться к хосту Yubico."""
-    try:
-        socket.setdefaulttimeout(timeout)
-        socket.socket(socket.AF_INET, socket.SOCK_STREAM).connect((host, port))
-        return True
-    except (socket.error, socket.timeout) as ex:
-        print(f"🔌 Интернет-соединение отсутствует: {ex}")
+# Кэш результата онлайна, чтобы не дёргать сеть слишком часто
+_LAST_ONLINE_TS = 0.0
+_LAST_ONLINE_RESULT = False
+
+def check_internet_connection(timeout: float = 0.7, cache_ttl: float = 10.0, retries: int = 2) -> bool:
+    """Устойчивый и быстрый детектор онлайна.
+    Стратегия:
+    - Кэшируем результат на cache_ttl секунд, чтобы избежать миганий UI
+    - Прямой TCP (без DNS) к публичным адресам: 1.1.1.1:443, 8.8.8.8:443, 9.9.9.9:443
+    - DNS + TCP к api.yubico.com:443 (пробуем несколько A-записей)
+    - Онлайн, если (хотя бы один прямой TCP успешен) и (DNS разрешился и хотя бы одна попытка TCP к api.yubico.com успешна)
+      В качестве послабления: если прямой TCP успешен и DNS разрешился (но TCP к api.yubico.com не прошёл), считаем онлайн
+      чтобы избежать ложных оффлайнов при временных сбоях Yubico.
+    """
+    global _LAST_ONLINE_TS, _LAST_ONLINE_RESULT
+    now = time.time()
+    if now - _LAST_ONLINE_TS < cache_ttl:
+        return _LAST_ONLINE_RESULT
+
+    def try_connect(host_port_pairs):
+        for (h, p) in host_port_pairs:
+            for _ in range(max(1, retries)):
+                try:
+                    with socket.create_connection((h, p), timeout=timeout):
+                        return True
+                except Exception:
+                    continue
         return False
+
+    # 1) Прямой TCP к популярным DNS‑резолверам (без DNS)
+    direct_ok = try_connect([("1.1.1.1", 443), ("8.8.8.8", 443), ("9.9.9.9", 443)])
+
+    # 2) DNS + TCP к api.yubico.com (пробуем несколько IP)
+    yubico_tcp_ok = False
+    dns_ok = False
+    try:
+        # Получаем несколько адресов
+        infos = socket.getaddrinfo("api.yubico.com", 443, proto=socket.IPPROTO_TCP)
+        targets = []
+        for info in infos:
+            addr = info[-1]
+            if isinstance(addr, tuple) and len(addr) >= 2:
+                targets.append((addr[0], 443))
+        dns_ok = len(targets) > 0
+        # Пробуем несколько IP
+        if targets:
+            yubico_tcp_ok = try_connect(targets[:3])
+    except Exception:
+        dns_ok = False
+        yubico_tcp_ok = False
+
+    result = (direct_ok and yubico_tcp_ok) or (direct_ok and dns_ok)
+    _LAST_ONLINE_TS, _LAST_ONLINE_RESULT = now, result
+    if not result:
+        try:
+            print(f"🔌 Интернет офлайн/нестабилен: direct_ok={direct_ok}, dns_ok={dns_ok}, yubico_tcp_ok={yubico_tcp_ok}")
+        except Exception:
+            pass
+    return result
 
 class YubiKeyAuth:
     def __init__(self, app_data_dir, static_passwords=None):
@@ -23,6 +74,8 @@ class YubiKeyAuth:
         self.keys = []  # Список ключей вместо одного
         self.enabled = False
         self.static_passwords = static_passwords or []
+        # Ограничение по публичным ID (модхекс-префикс OTP, обычно 12 символов)
+        self.allowed_public_ids = set()
         # Секретный PIN и антибрут-логика (в файле config.json приложения)
         self.app_data_dir = Path(app_data_dir)
         self.app_config_path = self.app_data_dir / 'config.json'
@@ -31,6 +84,23 @@ class YubiKeyAuth:
         self.secret_login_block_duration = 30  # секунд
 
         self.load_config()
+        # Если заданы статические пароли, включаем защиту даже без онлайн-ключей
+        try:
+            if self.static_passwords and len(self.static_passwords) > 0:
+                self.enabled = True
+        except Exception:
+            pass
+        # Загружаем разрешённые публичные ID из окружения
+        try:
+            import os
+            env_allowed = os.getenv('YUBIKEY_ALLOWED_PUBLIC_IDS')
+            if env_allowed:
+                for it in env_allowed.split(','):
+                    it = (it or '').strip()
+                    if it:
+                        self.allowed_public_ids.add(it)
+        except Exception:
+            pass
     
     def load_config(self):
         """Загружает конфигурацию YubiKey с улучшенной обработкой ошибок."""
@@ -53,6 +123,25 @@ class YubiKeyAuth:
                         else:
                             # Новый формат (несколько ключей)
                             self.keys = config.get('keys', [])
+                            # Глобально заданный список разрешённых public id
+                            try:
+                                top_allowed = config.get('allowed_public_ids') or []
+                                if isinstance(top_allowed, list):
+                                    for it in top_allowed:
+                                        if isinstance(it, str) and it.strip():
+                                            self.allowed_public_ids.add(it.strip())
+                            except Exception:
+                                pass
+                            # Собираем возможные разрешённые публичные ID из ключей
+                            for k in self.keys:
+                                for fld in ('public_id', 'public_ids'):
+                                    v = k.get(fld)
+                                    if isinstance(v, str):
+                                        self.allowed_public_ids.add(v.strip())
+                                    elif isinstance(v, list):
+                                        for it in v:
+                                            if isinstance(it, str) and it.strip():
+                                                self.allowed_public_ids.add(it.strip())
                         self.enabled = config.get('enabled', False)
                         print(f"✅ Конфигурация YubiKey загружена: {len(self.keys)} ключей")
                 except json.JSONDecodeError as e:
@@ -65,8 +154,14 @@ class YubiKeyAuth:
                     self.enabled = False
             else:
                 print(f"📄 Файл конфигурации YubiKey не найден: {self.config_file}")
+                # Безопасный режим по умолчанию для дистрибутива: включаем защиту и просим настроить ключи
                 self.keys = []
-                self.enabled = False
+                self.enabled = True
+                try:
+                    self.save_config()
+                    print("🔒 YubiKey включён по умолчанию. Добавьте ключ в Настройках.")
+                except Exception:
+                    pass
         except Exception as e:
             print(f"❌ Критическая ошибка загрузки YubiKey: {e}")
             self.keys = []
@@ -80,7 +175,8 @@ class YubiKeyAuth:
             
             config = {
                 'keys': self.keys,
-                'enabled': self.enabled
+                'enabled': self.enabled,
+                'allowed_public_ids': sorted(list(self.allowed_public_ids)) if self.allowed_public_ids else []
             }
             
             with open(self.config_file, 'w', encoding='utf-8') as f:
@@ -91,8 +187,8 @@ class YubiKeyAuth:
             print(f"❌ Ошибка сохранения YubiKey: {e}")
             raise
     
-    def add_key(self, client_id, secret_key, name=None):
-        """Добавляет новый YubiKey."""
+    def add_key(self, client_id, secret_key, name=None, public_ids=None):
+        """Добавляет новый YubiKey. public_ids — список разрешённых публичных ID."""
         if not name:
             name = f"Ключ {len(self.keys) + 1}"
         
@@ -102,6 +198,12 @@ class YubiKeyAuth:
             'name': name,
             'created_at': datetime.now().isoformat()
         }
+        if public_ids:
+            if isinstance(public_ids, str):
+                public_ids = [public_ids]
+            new_key['public_ids'] = [pid.strip() for pid in public_ids if isinstance(pid, str) and pid.strip()]
+            for pid in new_key.get('public_ids', []):
+                self.allowed_public_ids.add(pid)
         
         self.keys.append(new_key)
         self.enabled = True
@@ -242,38 +344,38 @@ class YubiKeyAuth:
             return False
     
     def verify_otp(self, otp):
-        """Гибридная проверка: сначала статические пароли, потом онлайн с понятными ошибками."""
+        """Строгая проверка в зависимости от режима.
+        Онлайн: только динамический OTP (ModHex 44) через YubiCloud.
+        Офлайн: только статические пароли из .env.
+        """
         if not otp:
             return False, "OTP не может быть пустым"
 
-        # Сначала проверяем статические пароли (всегда)
-        if self.static_passwords and otp in self.static_passwords:
-            print("✅ Статический пароль успешно проверен.")
-            session['yubikey_authenticated'] = True
-            session['offline_auth'] = True
-            return True, "Офлайн-пароль подтвержден"
+        online = check_internet_connection()
 
-        # Если статический пароль не подошел, проверяем онлайн-ключи
-        if check_internet_connection():
+        # Онлайн-режим: принимаем только динамический OTP
+        if online:
+            # Явно отклоняем статические пароли в онлайн-режиме
+            if self.static_passwords and otp in self.static_passwords:
+                return False, "В онлайн-режиме используйте динамический OTP"
+
             # Строгая проверка формата для онлайн-ключа (YubiKey OTP): 44 символа ModHex
             if not re.match(r'^[cbdefghijklnrtuv]{44}$', otp):
-                print("❌ Неверный формат онлайн OTP и неверный офлайн-пароль")
-                return False, "Неверный формат онлайн OTP и неверный офлайн-пароль"
+                return False, "Неверный формат динамического OTP"
 
             if not self.keys:
                 return False, "Онлайн-ключи не настроены"
 
-            # Таблица расшифровки ответов Yubico в понятные сообщения
             status_to_message = {
                 'REPLAYED_OTP': "Код уже был использован. Нажмите кнопку ещё раз (сгенерируйте новый).",
                 'BAD_OTP': "Неверный одноразовый код. Нажмите кнопку на ключе ещё раз.",
-                'NO_SUCH_CLIENT': "Неверный Client ID. Проверьте, что в настройках указан числовой Client ID из кабинета Yubico.",
-                'BAD_SIGNATURE': "Неверный Secret Key. Проверьте Secret Key, скопируйте заново из кабинета Yubico.",
-                'MISSING_PARAMETER': "Отсутствуют параметры запроса. Проверьте, что сохранены Client ID и Secret Key.",
-                'BACKEND_ERROR': "Сбой на стороне Yubico. Повторите попытку позже.",
+                'NO_SUCH_CLIENT': "Неверный Client ID. Проверьте числовой Client ID.",
+                'BAD_SIGNATURE': "Неверный Secret Key. Проверьте Secret Key.",
+                'MISSING_PARAMETER': "Отсутствуют параметры запроса.",
+                'BACKEND_ERROR': "Сбой на стороне Yubico. Повторите позже.",
                 'REPLAYED_REQUEST': "Повтор запроса. Попробуйте ещё раз.",
-                'NOT_ENOUGH_ANSWERS': "Недостаточно ответов сервера Yubico. Повторите попытку позже.",
-                'OPERATION_NOT_ALLOWED': "OTP-операция запрещена для вашего ключа. Проверьте настройку слота OTP."
+                'NOT_ENOUGH_ANSWERS': "Недостаточно ответов сервера Yubico.",
+                'OPERATION_NOT_ALLOWED': "Операция OTP запрещена для вашего ключа."
             }
 
             for key_data in self.keys:
@@ -283,55 +385,105 @@ class YubiKeyAuth:
                     if not client_id or not secret_key:
                         continue
 
-                    client = Yubico(client_id, secret_key)
+                    # Быстрая валидация формата Secret Key (base64)
+                    try:
+                        import base64, binascii
+                        base64.b64decode(str(secret_key).encode('ascii'), validate=True)
+                    except (binascii.Error, ValueError, UnicodeError):
+                        return False, "Secret Key в настройках некорректен (ожидается base64 из кабинета Yubico)"
 
-                    # Запрашиваем подробный ответ от YubiCloud
+                    client = Yubico(client_id, secret_key)
                     response = client.verify(otp, return_response=True)
-                    status = getattr(response, 'status', None) if response is not None else None
+                    # Расширенная диагностика статуса ответа
+                    try:
+                        status = getattr(response, 'status', None)
+                    except Exception:
+                        status = None
+                    if status is None and isinstance(response, dict):
+                        status = response.get('status')
+                    try:
+                        print(f"🧪 Yubico response: {getattr(response, 'status', None)} | raw={response}")
+                    except Exception:
+                        pass
 
                     if status == 'OK':
-                        print(f"✅ Онлайн OTP успешно проверен ключом: {key_data.get('name', 'Неизвестный')}")
+                        # Проверка привязки к устройству по публичному ID (первые 12 modhex символов)
+                        try:
+                            public_id = str(otp)[:12]
+                        except Exception:
+                            public_id = None
+                        if self.allowed_public_ids:
+                            if not public_id or public_id not in self.allowed_public_ids:
+                                return False, "OTP от непозволенного ключа (public id не в списке разрешённых)"
+                        else:
+                            # Если список не задан — авто-привязка к первому успешному public id
+                            if public_id and len(public_id) == 12:
+                                self.allowed_public_ids.add(public_id)
+                                try:
+                                    self.save_config()
+                                    print(f"🔒 Автопривязка к ключу: {public_id}")
+                                except Exception:
+                                    pass
                         session['yubikey_authenticated'] = True
                         return True, "Онлайн-пароль подтвержден"
 
-                    # Если статус присутствует и не OK — вернём понятное сообщение
                     if status:
                         human_message = status_to_message.get(status, f"Ошибка Yubico: {status}")
-                        print(f"⚠️ Верификация не пройдена ({status}): {human_message}")
                         return False, human_message
 
-                    # На всякий случай: если библиотека вернула неуспех без статуса
-                    print("⚠️ Верификация не удалась без кода статуса")
-                    return False, "Не удалось подтвердить OTP. Попробуйте ещё раз."
-
+                    return False, "Не удалось подтвердить OTP (нет статуса ответа). Проверьте Client ID/Secret Key и повторите."
                 except InvalidClientIdError:
-                    return False, "Неверный Client ID. Проверьте значение в настройках YubiKey."
+                    return False, "Неверный Client ID."
                 except SignatureVerificationError:
-                    return False, "Неверный Secret Key. Проверьте значение в настройках YubiKey."
+                    return False, "Неверный Secret Key."
                 except YubicoError as e:
                     msg = str(e) or "YubicoError"
                     lower_msg = msg.lower()
                     if 'timeout' in lower_msg or 'timed out' in lower_msg:
-                        return False, "Тайм-аут соединения с YubiCloud. Проверьте интернет и повторите."
+                        return False, "Тайм-аут соединения с YubiCloud."
                     if 'network' in lower_msg or 'connection' in lower_msg:
-                        return False, "Нет связи с YubiCloud. Проверьте интернет-соединение."
+                        return False, "Нет связи с YubiCloud."
                     return False, f"Ошибка Yubico: {msg}"
 
             return False, "Неверный онлайн OTP"
-        else:
-            if not self.static_passwords:
-                return False, "Статические пароли не настроены"
-            print("❌ Статический пароль неверный или не задан.")
-            return False, "Неверный офлайн-пароль"
-    
 
-            print(f"⚠️ Ошибка в secret_authenticate: {e}")
-            return False, f"Ошибка аутентификации: {e}"
+        # Офлайн-режим: принимаем только статический пароль
+        if self.static_passwords and otp in self.static_passwords:
+            session['yubikey_authenticated'] = True
+            session['offline_auth'] = True
+            return True, "Офлайн-пароль подтвержден"
+
+        if self.static_passwords:
+            return False, "В офлайн-режиме используйте статический пароль"
+        return False, "Статические пароли не настроены"
     
     def require_auth(self, f):
         def decorated(*args, **kwargs):
+            try:
+                from flask import request
+                endpoint = (request.endpoint or '').strip()
+            except Exception:
+                endpoint = ''
+
+            # Если защита отключена — пропускаем
             if not self.enabled:
                 return f(*args, **kwargs)
+
+            # Если ключи ещё не заданы — разрешаем только настройки/мастер
+            try:
+                if len(self.get_keys()) == 0:
+                    if endpoint in ('settings_page', 'yubikey_setup', 'static'):
+                        return f(*args, **kwargs)
+                    # Убираем флаг аутентификации, чтобы исключить доступ по старой сессии
+                    try:
+                        session.pop('yubikey_authenticated', None)
+                    except Exception:
+                        pass
+                    return redirect(url_for('yubikey_setup'))
+            except Exception:
+                pass
+
+            # Во всех остальных случаях требуется аутентификация
             if not self.is_authenticated():
                 return redirect(url_for('yubikey_login'))
             return f(*args, **kwargs)

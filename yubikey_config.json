@@ -1,11 +1,24 @@
 {
   "keys": [
     {
-      "client_id": "your-client-id-here",
-      "secret_key": "your-secret-key-here",
-      "name": "Default Key",
-      "created_at": "2025-07-31T00:00:00.000000"
+      "client_id": "114848",
+      "secret_key": "glr8sXZ2x5dGHNkGaaWjAUsbvjQ=",
+      "name": "Lithing",
+      "created_at": "2025-09-17T22:58:31.917364"
+    },
+    {
+      "client_id": "114847",
+      "secret_key": "FCHOIl9jeIOna5gI0ZD3nUzWhT0=",
+      "name": "Nano",
+      "created_at": "2025-09-17T23:15:44.655683",
+      "public_ids": [
+        "cccccbgfgjkb"
+      ]
     }
   ],
-  "enabled": true
+  "enabled": true,
+  "allowed_public_ids": [
+    "cccccbgfgjkb",
+    "cccccbgklrhh"
+  ]
 }

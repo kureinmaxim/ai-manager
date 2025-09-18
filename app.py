@@ -21,7 +21,11 @@ import logging
 import re
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from jinja2.ext import do as DoExtension
-from yubikey_auth import check_internet_connection
+try:
+    from yubikey_auth import check_internet_connection
+except Exception:
+    def check_internet_connection(timeout: float = 0.5):
+        return False
 import sys
 import socket
 import time
@@ -157,8 +161,15 @@ def get_app_data_dir():
                 app_name
             )
     else:
-        # В режиме разработки используем локальные пути
+        # В режиме разработки используем локальные пути,
+        # а для инсталлятора на Windows — Roaming (если установлен признак сборки)
         app_data_dir = os.path.join(os.getcwd())
+        try:
+            if os.name == 'nt' and (os.getenv('ALLMANAGERC_INSTALLED') == '1' or getattr(sys, 'frozen', False)):
+                app_name = "AllManagerC"
+                app_data_dir = os.path.join(os.environ.get('APPDATA', os.path.expanduser("~")), app_name)
+        except Exception:
+            pass
     
     # Создаем директории для данных и загрузок
     os.makedirs(os.path.join(app_data_dir, "data"), exist_ok=True)
@@ -2201,7 +2212,6 @@ def yubikey_login():
         # Если YubiKey включен, но ключи не настроены, направляем в настройки
         try:
             if yubikey_auth and yubikey_auth.enabled and len(yubikey_auth.get_keys()) == 0:
-                from flask import flash
                 flash('YubiKey ключи не настроены. Укажите Client ID и Secret Key в разделе «Настройки».', 'warning')
                 return redirect(url_for('settings_page'))
         except Exception:
@@ -2237,14 +2247,34 @@ def yubikey_login():
                 flash(f'Ошибка при проверке OTP: {e}', 'error')
         
         print("✅ Рендеринг страницы входа YubiKey")
-        return render_template('yubikey_login.html', is_online=is_online)
+        try:
+            is_dev = bool(os.getenv('FLASK_ENV') == 'development' or app.debug)
+        except Exception:
+            is_dev = False
+        allowed_ids = []
+        try:
+            if yubikey_auth and hasattr(yubikey_auth, 'allowed_public_ids'):
+                allowed_ids = sorted(list(yubikey_auth.allowed_public_ids))
+        except Exception:
+            allowed_ids = []
+        return render_template('yubikey_login.html', is_online=is_online, is_dev=is_dev, allowed_public_ids=allowed_ids)
         
     except Exception as e:
         print(f"❌ Критическая ошибка в yubikey_login: {e}")
         import traceback
         traceback.print_exc()
         flash('Произошла ошибка при обработке запроса', 'error')
-        return render_template('yubikey_login.html', is_online=check_internet_connection())
+        try:
+            is_dev = bool(os.getenv('FLASK_ENV') == 'development' or app.debug)
+        except Exception:
+            is_dev = False
+        allowed_ids = []
+        try:
+            if yubikey_auth and hasattr(yubikey_auth, 'allowed_public_ids'):
+                allowed_ids = sorted(list(yubikey_auth.allowed_public_ids))
+        except Exception:
+            allowed_ids = []
+        return render_template('yubikey_login.html', is_online=check_internet_connection(), is_dev=is_dev, allowed_public_ids=allowed_ids)
 
 @app.route('/yubikey/logout')
 def yubikey_logout():
@@ -2262,14 +2292,40 @@ def yubikey_setup():
         client_id = request.form.get('client_id', '').strip()
         secret_key = request.form.get('secret_key', '').strip()
         key_name = request.form.get('key_name', '').strip()
-        
-        if not client_id or not secret_key:
-            flash('Введите Client ID и Secret Key', 'danger')
-        else:
-            if yubikey_auth.add_key(client_id, secret_key, key_name):
+        public_id_input = request.form.get('public_id', '').strip()
+        public_ids = []
+        if public_id_input:
+            candidates = [p.strip() for p in public_id_input.split(',') if p.strip()]
+            try:
+                modhex12 = re.compile(r'^[cbdefghijklnrtuv]{12}$')
+                public_ids = [p for p in candidates if modhex12.match(p)]
+            except Exception:
+                public_ids = candidates
+
+        # Ветвь 1: обновление списка разрешённых public id без добавления ключа
+        if (not client_id and not secret_key) and public_ids:
+            try:
+                for pid in public_ids:
+                    yubikey_auth.allowed_public_ids.add(pid)
+                yubikey_auth.save_config()
+                flash('Список разрешённых public id обновлён', 'success')
+            except Exception as e:
+                flash(f'Ошибка сохранения public id: {e}', 'danger')
+        # Ветвь 2: добавление ключа (и при необходимости public id)
+        elif client_id and secret_key:
+            if yubikey_auth.add_key(client_id, secret_key, key_name, public_ids=public_ids or None):
+                try:
+                    if public_ids:
+                        for pid in public_ids:
+                            yubikey_auth.allowed_public_ids.add(pid)
+                        yubikey_auth.save_config()
+                except Exception:
+                    pass
                 flash('YubiKey успешно добавлен!', 'success')
             else:
                 flash('Ошибка при добавлении ключа', 'danger')
+        else:
+            flash('Укажите Client ID и Secret Key или только публичный ID(ы) для ограничения доступа', 'warning')
     
     # Передаем данные для отображения
     keys = yubikey_auth.get_keys() if yubikey_auth else []

@@ -77,6 +77,15 @@
                                 <div class="mb-3">
                                     <label for="secret_key" class="form-label fw-bold">Yubico Secret Key:</label>
                                     <input type="text" class="form-control" id="secret_key" name="secret_key" required>
+                                    <div class="form-text">Строка base64 из кабинета Yubico. Длина кратна 4; символы A–Z, a–z, 0–9, +, /, =</div>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="public_id" class="form-label">Ограничить вход по публичному ID (опционально):</label>
+                                    <div class="input-group">
+                                        <input type="text" class="form-control" id="public_id" name="public_id" placeholder="Первые 12 символов OTP после успешного теста">
+                                        <button class="btn btn-outline-secondary" type="button" id="capturePublicIdBtn">Захватить из OTP</button>
+                                    </div>
+                                    <div class="form-text">Можно указать список через запятую. Если заполнить, вход будет разрешён только для указанных ключей.</div>
                                 </div>
                                 <div class="d-grid gap-2">
                                     <button type="submit" class="btn btn-success">
@@ -96,4 +105,33 @@
         </div>
     </div>
 </div>
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const btn = document.getElementById('capturePublicIdBtn');
+  const input = document.getElementById('public_id');
+  if (!btn || !input) return;
+  btn.addEventListener('click', async function() {
+    try {
+      const otp = prompt('Вставьте сюда недавно сгенерированный OTP из нужного ключа');
+      if (!otp) return;
+      const cleaned = String(otp).trim();
+      const pub = cleaned.slice(0, 12);
+      if (pub && pub.length === 12) {
+        if (input.value && input.value.trim()) {
+          const parts = input.value.split(',').map(s => s.trim()).filter(Boolean);
+          if (!parts.includes(pub)) parts.push(pub);
+          input.value = parts.join(',');
+        } else {
+          input.value = pub;
+        }
+        alert('Публичный ID добавлен: ' + pub);
+      } else {
+        alert('Не удалось извлечь публичный ID (нужно вставить полный OTP)');
+      }
+    } catch(e) { alert('Ошибка: ' + e); }
+  });
+});
+</script>
+{% endblock %}
 {% endblock %}
