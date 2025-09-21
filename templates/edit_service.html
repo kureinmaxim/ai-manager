@@ -142,9 +142,29 @@ document.addEventListener('DOMContentLoaded', updateOAuthMethods);
                     </div>
                 </div>
                 <div class="mb-3">
-                    <label for="additional_info" class="form-label">Дополнительная информация для входа</label>
-                    <textarea class="form-control" id="additional_info" name="additional_info" rows="2">{{ service.credentials.additional_info }}</textarea>
+                    <textarea class="form-control" id="additional_info" name="additional_info" rows="2" placeholder="Дополнительная информация для входа (опционально)">{{ service.credentials.additional_info }}</textarea>
                 </div>
+
+                <hr>
+                <h6 class="mt-3">Учетные данные (несколько аккаунтов)</h6>
+                <div id="extra-accounts-list">
+                  {% for cred in service.credentials_list %}
+                  <div class="row g-2 align-items-end extra-account-item mb-2">
+                    <div class="col-md-6">
+                      <label class="form-label">Email/Имя пользователя</label>
+                      <input type="text" class="form-control" name="extra_username[]" value="{{ cred.username_decrypted }}">
+                    </div>
+                    <div class="col-md-5">
+                      <label class="form-label">Пароль (оставьте пустым, чтобы не менять)</label>
+                      <input type="password" class="form-control" name="extra_password[]" value="">
+                    </div>
+                    <div class="col-md-1 d-grid">
+                      <button type="button" class="btn btn-outline-danger" onclick="removeExtraAccount(this)"><i class="bi bi-x"></i></button>
+                    </div>
+                  </div>
+                  {% endfor %}
+                </div>
+                <button type="button" class="btn btn-outline-primary btn-sm" onclick="addExtraAccount()"><i class="bi bi-plus"></i> Добавить аккаунт</button>
 
                 </div>
       </div>
@@ -287,12 +307,11 @@ document.addEventListener('DOMContentLoaded', updateOAuthMethods);
 
                 <h5 class="mt-4">Дополнительная информация</h5>
                 <div class="mb-3">
-                    <label for="notes" class="form-label">Заметки</label>
-                    <textarea class="form-control" id="notes" name="notes" rows="3">{{ service.notes }}</textarea>
+                    <textarea class="form-control" id="notes" name="notes" rows="3" placeholder="Заметки (опционально)">{{ service.notes }}</textarea>
                 </div>
                 
                 <button type="submit" class="btn btn-primary mt-3">Сохранить изменения</button>
-                <a href="{{ url_for('index') }}" class="btn btn-secondary mt-3">Отмена</a>
+                <a href="{{ url_for('index', highlight_id=service.id) }}" class="btn btn-secondary mt-3" id="cancel-edit">Отмена</a>
             </form>
         </div>
         <div class="col-md-4">
@@ -329,6 +348,37 @@ document.addEventListener('DOMContentLoaded', updateOAuthMethods);
 <script>
 // Функция для обновления OAuth методов
 document.addEventListener('DOMContentLoaded', updateOAuthMethods);
+
+// Добавить/удалить дополнительные аккаунты
+function addExtraAccount() {
+  const list = document.getElementById('extra-accounts-list');
+  const wrapper = document.createElement('div');
+  wrapper.className = 'row g-2 align-items-end extra-account-item mb-2';
+  wrapper.innerHTML = `
+    <div class="col-md-6">
+      <label class="form-label">Email/Имя пользователя</label>
+      <input type="text" class="form-control" name="extra_username[]" value="">
+    </div>
+    <div class="col-md-5">
+      <label class="form-label">Пароль</label>
+      <input type="password" class="form-control" name="extra_password[]" value="">
+    </div>
+    <div class="col-md-1 d-grid">
+      <button type="button" class="btn btn-outline-danger" onclick="removeExtraAccount(this)"><i class="bi bi-x"></i></button>
+    </div>`;
+  list.appendChild(wrapper);
+}
+function removeExtraAccount(btn) {
+  const item = btn.closest('.extra-account-item');
+  if (item) item.remove();
+}
+
+// Esc = выйти без сохранения
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    window.location.href = '{{ url_for('index', highlight_id=service.id) }}';
+  }
+});
 </script>{% endblock %}
 
 {% block scripts %}

@@ -65,7 +65,7 @@ def main():
         f'AI Manager v{version}',
         'http://127.0.0.1:5050',
         width=1280,
-        height=800,
+        height=780,
         resizable=True,
         frameless=False,
         easy_drag=True,

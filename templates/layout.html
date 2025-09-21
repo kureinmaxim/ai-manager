@@ -66,9 +66,9 @@
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end">
                             <li class="dropdown-header">Масштаб интерфейса</li>
-                            <li><a class="dropdown-item" href="#" onclick="setZoom('80')"><i class="bi bi-zoom-out me-2"></i>80%</a></li>
-                            <li><a class="dropdown-item" href="#" onclick="setZoom('90')"><i class="bi bi-search me-2"></i>90%</a></li>
-                            <li><a class="dropdown-item active" href="#" onclick="setZoom('100')"><i class="bi bi-zoom-in me-2"></i>100%</a></li>
+                            <li><a class="dropdown-item dropdown-item-zoom" data-zoom="80" href="#" onclick="setZoom('80')"><i class="bi bi-zoom-out me-2"></i>80%</a></li>
+                            <li><a class="dropdown-item dropdown-item-zoom" data-zoom="90" href="#" onclick="setZoom('90')"><i class="bi bi-search me-2"></i>90%</a></li>
+                            <li><a class="dropdown-item dropdown-item-zoom" data-zoom="100" href="#" onclick="setZoom('100')"><i class="bi bi-zoom-in me-2"></i>100%</a></li>
                         </ul>
                     </li>
                     <li class="nav-item dropdown">
@@ -85,7 +85,7 @@
         </div>
     </nav>
 
-    <main class="content container mb-5">
+    <main class="content container-fluid mb-5">
         {% block content %}{% endblock %}
     </main>
     
@@ -101,6 +101,7 @@
         document.addEventListener('DOMContentLoaded', function() {
             const savedZoom = getCookie('ui_zoom') || '100';  // По умолчанию 100%
             document.body.style.zoom = savedZoom + '%';
+            updateZoomActive(savedZoom);
 
             // Инициализация dropdown
             const dropdownElementList = document.querySelectorAll('.dropdown-toggle');
@@ -108,7 +109,7 @@
 
             // Инициализация tooltip-ов по всему приложению
             const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
-            window.__appTooltips = [...tooltipTriggerList].map(el => new bootstrap.Tooltip(el, { container: 'body', boundary: 'viewport' }));
+            window.__appTooltips = [...tooltipTriggerList].map(el => new bootstrap.Tooltip(el, { container: 'body', boundary: 'viewport', placement: 'top', popperConfig: { strategy: 'fixed' } }));
 
             // Делегирование клика: кнопки с data-copy-text
             document.addEventListener('click', function(e) {
@@ -182,12 +183,29 @@
           const bsModal = new bootstrap.Modal(modal); bsModal.show();
           setTimeout(() => { document.getElementById('secretPin')?.focus(); }, 300);
 
+          // Enter для отправки PIN в модалке
+          const pinInput = document.getElementById('secretPin');
+          if (pinInput) {
+            pinInput.addEventListener('keydown', function(e) {
+              if (e.key === 'Enter') { e.preventDefault(); submitSecretLogin(); }
+            });
+          }
+
           const submitBtn = document.getElementById('modalSubmitBtn');
           const toLogin = () => { submitBtn.textContent='Войти'; submitBtn.className='btn btn-primary'; submitBtn.onclick=submitSecretLogin; };
           const toChange = () => { submitBtn.textContent='Сменить PIN'; submitBtn.className='btn btn-warning'; submitBtn.onclick=submitChangePin; };
           document.getElementById('login-tab').addEventListener('click', toLogin);
           document.getElementById('change-pin-tab').addEventListener('click', toChange);
           toLogin();
+
+          // Enter для формы смены PIN
+          const changeForm = document.getElementById('changePinForm');
+          if (changeForm) {
+            changeForm.addEventListener('submit', function(e){ e.preventDefault(); submitChangePin(); });
+            Array.from(changeForm.querySelectorAll('input')).forEach(function(inp){
+              inp.addEventListener('keydown', function(e){ if (e.key === 'Enter') { e.preventDefault(); submitChangePin(); } });
+            });
+          }
 
           modal.addEventListener('hidden.bs.modal', () => { document.body.removeChild(modal); });
         }
@@ -203,7 +221,7 @@
           const btn = document.getElementById('modalSubmitBtn'); btn.disabled = true; btn.textContent = 'Проверка...';
           fetch('/secret/login', { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:`pin=${encodeURIComponent(pin)}` })
             .then(r=>r.json()).then(d=>{
-              if (d.success) { showMsg('secretLoginMessage', d.message || 'Успех','success'); setTimeout(()=>location.reload(), 700); }
+              if (d.success) { showMsg('secretLoginMessage', d.message || 'Успех','success'); setTimeout(()=>{ window.location.href = '/'; }, 500); }
               else if (d.blocked) { showMsg('secretLoginMessage', `Блокировка: ${d.remaining_seconds} сек.`, 'warning'); }
               else { showMsg('secretLoginMessage', d.message || 'Ошибка', 'danger'); }
             }).catch(()=>showMsg('secretLoginMessage','Ошибка сети','danger'))
@@ -237,6 +255,15 @@
         function setZoom(zoom) {
             document.body.style.zoom = zoom + '%';
             setCookie('ui_zoom', zoom, 365);
+            updateZoomActive(zoom);
+        }
+
+        function updateZoomActive(currentZoom) {
+            const zoomItems = document.querySelectorAll('.dropdown-item-zoom');
+            zoomItems.forEach(item => {
+                const z = item.getAttribute('data-zoom');
+                item.classList.toggle('active', String(currentZoom) === String(z));
+            });
         }
 
         function setCookie(name, value, days) {
@@ -276,7 +303,7 @@
           button.classList.toggle('btn-danger', !ok);
           button.classList.remove('btn-outline-secondary');
 
-          const t = bootstrap.Tooltip.getOrCreateInstance(button);
+          const t = bootstrap.Tooltip.getOrCreateInstance(button, { container: 'body', boundary: 'viewport', placement: 'top', popperConfig: { strategy: 'fixed' } });
           const orig = button.getAttribute('data-bs-original-title') || button.getAttribute('title') || '';
           const msg = ok ? 'Скопировано!' : 'Не удалось';
           button.setAttribute('data-bs-original-title', msg);
@@ -289,6 +316,20 @@
             if (orig) { button.setAttribute('data-bs-original-title', orig); if (typeof t.setContent === 'function') t.setContent({ '.tooltip-inner': orig }); } else { button.removeAttribute('data-bs-original-title'); }
             try { t.hide(); } catch(_) {}
           }, 1000);
+        }
+
+        // Показ пароля во временном тултипе (для доп. аккаунтов)
+        function showTempPasswordTooltip(btn, pwd) {
+          const val = pwd == null ? '' : String(pwd);
+          const t = bootstrap.Tooltip.getOrCreateInstance(btn, { trigger: 'manual', container: 'body', boundary: 'viewport', placement: 'top', popperConfig: { strategy: 'fixed', modifiers: [{ name: 'offset', options: { offset: [0, 4] } }] } });
+          const orig = btn.getAttribute('data-bs-original-title') || btn.getAttribute('title') || '';
+          btn.setAttribute('data-bs-original-title', val || 'Пусто');
+          if (typeof t.setContent === 'function') t.setContent({ '.tooltip-inner': val || 'Пусто' });
+          try { t.show(); } catch(_) {}
+          setTimeout(() => {
+            if (orig) { btn.setAttribute('data-bs-original-title', orig); if (typeof t.setContent === 'function') t.setContent({ '.tooltip-inner': orig }); } else { btn.removeAttribute('data-bs-original-title'); }
+            try { t.hide(); } catch(_) {}
+          }, 1200);
         }
 
     </script>

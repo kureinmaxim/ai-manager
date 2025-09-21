@@ -140,9 +140,27 @@ document.addEventListener('DOMContentLoaded', updateOAuthMethods);
                     </div>
                 </div>
                 <div class="mb-3">
-                    <label for="additional_info" class="form-label">Дополнительная информация для входа</label>
-                    <textarea class="form-control" id="additional_info" name="additional_info" rows="2" placeholder="API ключи, токены, двухфакторная аутентификация и т.д."></textarea>
+                    <textarea class="form-control" id="additional_info" name="additional_info" rows="2" placeholder="Дополнительная информация для входа (опционально)"></textarea>
                 </div>
+
+                <hr>
+                <h6 class="mt-3">Учетные данные (несколько аккаунтов)</h6>
+                <div id="extra-accounts-list">
+                  <div class="row g-2 align-items-end extra-account-item mb-2">
+                    <div class="col-md-6">
+                      <label class="form-label">Email/Имя пользователя</label>
+                      <input type="text" class="form-control" name="extra_username[]" value="">
+                    </div>
+                    <div class="col-md-5">
+                      <label class="form-label">Пароль</label>
+                      <input type="password" class="form-control" name="extra_password[]" value="">
+                    </div>
+                    <div class="col-md-1 d-grid">
+                      <button type="button" class="btn btn-outline-danger" onclick="removeExtraAccount(this)"><i class="bi bi-x"></i></button>
+                    </div>
+                  </div>
+                </div>
+                <button type="button" class="btn btn-outline-primary btn-sm" onclick="addExtraAccount()"><i class="bi bi-plus"></i> Добавить аккаунт</button>
 
                 </div>
       </div>
@@ -233,8 +251,7 @@ document.addEventListener('DOMContentLoaded', updateOAuthMethods);
 
                 <h5 class="mt-4">Дополнительная информация</h5>
                  <div class="mb-3">
-                    <label for="notes" class="form-label">Заметки</label>
-                    <textarea class="form-control" id="notes" name="notes" rows="3" placeholder="Общие заметки, особенности использования, полезные ссылки"></textarea>
+                    <textarea class="form-control" id="notes" name="notes" rows="3" placeholder="Заметки (опционально)"></textarea>
                 </div>
                 
                 <button type="submit" class="btn btn-primary mt-3">Сохранить AI-сервис</button>
@@ -375,6 +392,31 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 });
+</script>
+<script>
+// Добавить/удалить дополнительные аккаунты
+function addExtraAccount() {
+  const list = document.getElementById('extra-accounts-list');
+  const wrapper = document.createElement('div');
+  wrapper.className = 'row g-2 align-items-end extra-account-item mb-2';
+  wrapper.innerHTML = `
+    <div class="col-md-6">
+      <label class="form-label">Email/Имя пользователя</label>
+      <input type="text" class="form-control" name="extra_username[]" value="">
+    </div>
+    <div class="col-md-5">
+      <label class="form-label">Пароль</label>
+      <input type="password" class="form-control" name="extra_password[]" value="">
+    </div>
+    <div class="col-md-1 d-grid">
+      <button type="button" class="btn btn-outline-danger" onclick="removeExtraAccount(this)"><i class="bi bi-x"></i></button>
+    </div>`;
+  list.appendChild(wrapper);
+}
+function removeExtraAccount(btn) {
+  const item = btn.closest('.extra-account-item');
+  if (item) item.remove();
+}
 </script>
 {% endblock %}
 

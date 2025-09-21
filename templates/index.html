@@ -1,7 +1,7 @@
 {% extends "layout.html" %}
 
 {% block content %}
-<div class="container mt-4">
+<div class="container-fluid mt-4">
     <!-- Блок для вывода flash-сообщений -->
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
@@ -52,7 +52,7 @@
       </button>
       <div class="card-carousel-row" id="card-carousel-row">
         {% for server in servers %}
-          <div class="card card-carousel-card" id="carousel-card-{{ loop.index0 }}">
+          <div class="card card-carousel-card" id="carousel-card-{{ loop.index0 }}" data-service-id="{{ server.id }}">
             {% include 'card_content.html' %}
             <div class="card-stack-actions">
                     <div class="d-flex justify-content-between mt-3">
@@ -198,6 +198,24 @@ document.addEventListener('DOMContentLoaded', function() {
       window.carouselScroll('right');
     }
   });
+
+  // Если есть highlight_id в строке запроса — прокрутить к карточке и подсветить
+  const params = new URLSearchParams(window.location.search);
+  const highlightId = params.get('highlight_id');
+  if (highlightId) {
+    const cards = Array.from(document.querySelectorAll('.card-carousel-card'));
+    const targetIdx = cards.findIndex(c => String(c.getAttribute('data-service-id')) === String(highlightId));
+    if (targetIdx >= 0) {
+      activeCardIndex = targetIdx;
+      setActiveCard(activeCardIndex);
+      ignoreScroll = true;
+      cards[activeCardIndex].scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+      setTimeout(() => { ignoreScroll = false; }, 600);
+      // Временная подсветка рамкой
+      cards[activeCardIndex].classList.add('highlight-pulse');
+      setTimeout(() => { cards[activeCardIndex].classList.remove('highlight-pulse'); }, 1600);
+    }
+  }
 });
 </script>
 {% endblock %}

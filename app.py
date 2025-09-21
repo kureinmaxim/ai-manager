@@ -677,6 +677,16 @@ def load_ai_services():
                 server["credentials"]["password_decrypted"] = decrypt_data(server["credentials"].get("password", ""))
                 server["credentials"]["additional_info_decrypted"] = decrypt_data(server["credentials"].get("additional_info", ""))
 
+            # Расшифровываем дополнительные учетные записи (credentials_list)
+            if isinstance(server.get("credentials_list"), list):
+                for item in server["credentials_list"]:
+                    try:
+                        item["username_decrypted"] = decrypt_data(item.get("username", ""))
+                        item["password_decrypted"] = decrypt_data(item.get("password", ""))
+                    except Exception:
+                        item["username_decrypted"] = ""
+                        item["password_decrypted"] = ""
+
             if 'receipts' in server.get('payment_info', {}):
                 # Сортировка чеков по дате загрузки (от новых к старым)
                 server['payment_info']['receipts'].sort(key=lambda r: r.get('upload_date', ''), reverse=True)
@@ -713,6 +723,12 @@ def save_ai_services(servers):
             server['credentials'].pop('username_decrypted', None)
             server['credentials'].pop('password_decrypted', None)
             server['credentials'].pop('additional_info_decrypted', None)
+        # Очищаем расшифрованные поля из credentials_list
+        if isinstance(server.get('credentials_list'), list):
+            for item in server['credentials_list']:
+                if isinstance(item, dict):
+                    item.pop('username_decrypted', None)
+                    item.pop('password_decrypted', None)
         
         # Удаляем другие временные поля, созданные для UI
         server.pop('hosting_analysis', None)
@@ -778,6 +794,26 @@ def re_encrypt_service_data(service, external_fernet, current_fernet):
             # В случае ошибки с секцией, продолжаем обработку других полей
             continue
     
+    # Дополнительно обрабатываем credentials_list
+    try:
+        if isinstance(service_copy.get('credentials_list'), list):
+            for idx, item in enumerate(service_copy['credentials_list']):
+                if not isinstance(item, dict):
+                    continue
+                for field in ('username', 'password'):
+                    encrypted_value = item.get(field)
+                    if not encrypted_value:
+                        continue
+                    try:
+                        decrypted_value = external_fernet.decrypt(encrypted_value.encode()).decode()
+                        reencrypted_value = current_fernet.encrypt(decrypted_value.encode()).decode()
+                        service_copy['credentials_list'][idx][field] = reencrypted_value
+                    except Exception:
+                        # оставляем как есть, если уже текущим ключом
+                        pass
+    except Exception:
+        pass
+
     return service_copy
 
 
@@ -1160,6 +1196,21 @@ def add_service():
             "updated_at": datetime.now().isoformat()
         }
 
+        # Сбор дополнительных учетных записей
+        extra_usernames = request.form.getlist('extra_username[]')
+        extra_passwords = request.form.getlist('extra_password[]')
+        credentials_list = []
+        for i in range(max(len(extra_usernames), len(extra_passwords))):
+            u = (extra_usernames[i] if i < len(extra_usernames) else '').strip()
+            p = (extra_passwords[i] if i < len(extra_passwords) else '').strip()
+            if u or p:
+                credentials_list.append({
+                    'username': encrypt_data(u),
+                    'password': encrypt_data(p)
+                })
+        if credentials_list:
+            new_service['credentials_list'] = credentials_list
+
         # Градиент
         new_service['gradient_color'] = request.form.get('gradient_color', '#667eea')
         
@@ -1294,6 +1345,17 @@ def edit_service(service_id):
     decrypted_service['credentials']['username'] = decrypt_data(service.get('credentials', {}).get('username'))
     decrypted_service['credentials']['additional_info'] = decrypt_data(service.get('credentials', {}).get('additional_info'))
     decrypted_service['personal_cabinet']['account_email'] = decrypt_data(service.get('personal_cabinet', {}).get('account_email'))
+    # Подготавливаем список дополнительных аккаунтов для формы (только username, пароль не подставляем)
+    decrypted_service['credentials_list_plain'] = []
+    if isinstance(service.get('credentials_list'), list):
+        for item in service['credentials_list']:
+            try:
+                decrypted_service['credentials_list_plain'].append({
+                    'username': decrypt_data(item.get('username', '')),
+                    'password': ''
+                })
+            except Exception:
+                decrypted_service['credentials_list_plain'].append({'username': '', 'password': ''})
     
     if request.method == 'POST':
         # Обновляем данные из формы
@@ -1329,6 +1391,23 @@ def edit_service(service_id):
         service['status'] = request.form.get('status')
         service['notes'] = request.form.get('notes')
         service['updated_at'] = datetime.now().isoformat()
+
+        # Обновление дополнительных учетных записей
+        extra_usernames = request.form.getlist('extra_username[]')
+        extra_passwords = request.form.getlist('extra_password[]')
+        new_list = []
+        for i in range(max(len(extra_usernames), len(extra_passwords))):
+            u = (extra_usernames[i] if i < len(extra_usernames) else '').strip()
+            p = (extra_passwords[i] if i < len(extra_passwords) else '').strip()
+            if u or p:
+                new_list.append({
+                    'username': encrypt_data(u),
+                    'password': encrypt_data(p)
+                })
+        if new_list:
+            service['credentials_list'] = new_list
+        else:
+            service.pop('credentials_list', None)
         
         # Градиент
         service['gradient_color'] = request.form.get('gradient_color', '#667eea')
@@ -1372,7 +1451,7 @@ def edit_service(service_id):
 
         save_ai_services(services)
         flash('AI-сервис успешно обновлен!', 'success')
-        return redirect(url_for('index'))
+        return redirect(url_for('index', highlight_id=service['id']))
 
     # Для GET запроса
     # Загружаем схему для динамического формирования полей формы
@@ -2211,6 +2290,13 @@ def yubikey_login():
         # Проверяем статус сети для передачи в шаблон (быстро)
         is_online = check_internet_connection(timeout=0.5)
         
+        # Если уже аутентифицированы, редиректим на главную
+        try:
+            if yubikey_auth and yubikey_auth.is_authenticated():
+                return redirect(url_for('index'))
+        except Exception:
+            pass
+
         if request.method == 'POST':
             otp = request.form.get('otp', '').strip()
             print(f"🔍 Проверка OTP: {otp[:10]}... (длина: {len(otp)})")
@@ -2328,10 +2414,49 @@ if __name__ == "__main__":
             'AllManagerC',
             f'http://127.0.0.1:{SERVER_PORT or 5050}',
             width=1280,
-            height=800,
+            height=780,
             resizable=True
         )
         window.events.closing += on_closing
+
+        # После загрузки страниц корректируем высоту окна: на главной выше, на остальных компактно
+        def _on_loaded():
+            try:
+                current_url = None
+                try:
+                    current_url = window.get_current_url()
+                except Exception:
+                    current_url = None
+                if current_url:
+                    try:
+                        from urllib.parse import urlparse
+                        current_path = urlparse(current_url).path or '/'
+                    except Exception:
+                        current_path = '/'
+                else:
+                    # Запрашиваем путь на стороне страницы
+                    current_path = window.evaluate_js('window.location.pathname') or '/'
+
+                if str(current_path).strip() == '/':
+                    window.resize(1280, 1000)
+                else:
+                    try:
+                        content_h = window.evaluate_js('Math.ceil((document.querySelector("footer")?.getBoundingClientRect().bottom || document.body.scrollHeight))')
+                        target_h = int(content_h) + 20
+                        if target_h < 680:
+                            target_h = 680
+                        if target_h > 900:
+                            target_h = 900
+                        window.resize(1280, target_h)
+                    except Exception:
+                        window.resize(1280, 820)
+            except Exception as e:
+                print(f"⚠️ Не удалось изменить размер окна после загрузки: {e}")
+
+        try:
+            window.events.loaded += _on_loaded
+        except Exception as e:
+            print(f"⚠️ Ошибка подписки на событие loaded: {e}")
 
         # Запускаем GUI
         print("🚀 Запуск GUI приложения...")
