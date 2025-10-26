@@ -57,9 +57,9 @@ def main():
         import json
         with open('config.json', 'r', encoding='utf-8') as f:
             config = json.load(f)
-            version = config.get('app_info', {}).get('version', '5.5.4')
+            version = config.get('app_info', {}).get('version', '5.6.0')
     except:
-        version = '5.5.4'
+        version = '5.6.0'
 
     window = webview.create_window(
         f'AI Manager v{version}',

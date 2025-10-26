@@ -45,13 +45,18 @@ git clone https://github.com/your-username/ai-manager.git
 cd ai-manager
 
 # Создание виртуального окружения
-python3 -m venv venv
+# Windows:
+python -m venv .venv
+# macOS/Linux:
+python3 -m venv .venv
 
 # Активация окружения
-# Windows:
-venv\Scripts\activate
+# Windows PowerShell:
+.\.venv\Scripts\Activate.ps1
+# Windows CMD:
+.venv\Scripts\activate.bat
 # macOS/Linux:
-source venv/bin/activate
+source .venv/bin/activate
 
 # Установка зависимостей
 pip install -r requirements.txt
@@ -214,9 +219,9 @@ git commit -m "docs: обновлено руководство по устано
 Что происходит на самом деле
 
 ## Информация о системе
-- ОС: macOS 12.0
-- Python: 3.9.7
-- Версия приложения: 5.5.4
+- ОС: macOS 12.0 / Windows 11
+- Python: 3.13+
+- Версия приложения: 5.6.0
 
 ## Дополнительная информация
 Скриншоты, логи, конфигурация

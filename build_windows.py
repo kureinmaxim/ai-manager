@@ -12,6 +12,7 @@ CONFIG_FILE = PROJECT_ROOT / 'config.json'
 ICON_DIR = PROJECT_ROOT / 'static' / 'images'
 ICON_ICO = ICON_DIR / 'icon.ico'
 ICON_PNG = ICON_DIR / 'ALLc.png'
+ICON_ICO_PREFERRED = ICON_DIR / 'icon.ico'
 
 def update_config_date():
     try:
@@ -26,13 +27,16 @@ def update_config_date():
     return '0.0.0'
 
 def ensure_icon_ico():
-    """Создает icon.ico из ALLc.png (если нужно)."""
+    """Готовит icon.ico: если уже есть static/images/icon.ico — используем; иначе пробуем сгенерировать из ALLc.png."""
     try:
-        if ICON_ICO.exists() and ICON_PNG.exists():
-            if ICON_ICO.stat().st_mtime >= ICON_PNG.stat().st_mtime:
-                return True
+        # Если icon.ico уже существует — ничего не трогаем
+        if ICON_ICO.exists():
+            print(f"[icons] Найден icon.ico: {ICON_ICO}")
+            return True
+        # Если рядом лежит предпочтительный файл (тот же путь) — вернёт True выше
+        # Иначе генерируем из PNG
         if not ICON_PNG.exists():
-            print(f"[icons] PNG иконка не найдена: {ICON_PNG}")
+            print(f"[icons] PNG иконка не найдена и icon.ico отсутствует: {ICON_PNG}")
             return False
         try:
             from PIL import Image
@@ -56,7 +60,7 @@ def build():
     version = update_config_date()
 
     # Готовим иконку
-    ensure_icon_ico()
+    icon_ok = ensure_icon_ico()
 
     datas = [
         "templates;templates",
@@ -106,7 +110,7 @@ def build():
         "app.py"
     ]
 
-    if ICON_ICO.exists():
+    if ICON_ICO.exists() and icon_ok:
         cmd.insert(-1, f"--icon={ICON_ICO}")
 
     print("Running:", " ".join(map(str, cmd)))

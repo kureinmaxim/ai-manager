@@ -281,10 +281,10 @@ if 'app_info' not in app.config:
     try:
         with open('config.json', 'r', encoding='utf-8') as f:
             config = json.load(f)
-            version = config.get('app_info', {}).get('version', '5.5.4')
+            version = config.get('app_info', {}).get('version', '5.6.0')
             developer = config.get('app_info', {}).get('developer', 'AI Manager Team')
     except:
-        version = '5.5.4'
+        version = '5.6.0'
         developer = 'AI Manager Team'
     app.config['app_info'] = {
         "version": "N/A",
@@ -399,6 +399,42 @@ def check_ip_access():
 def before_request_security():
     """Выполняется перед каждым запросом для проверки безопасности."""
     check_ip_access()
+
+# Динамическое требование аутентификации (независимо от декораторов маршрутов)
+@app.before_request
+def enforce_authentication_dynamic():
+    try:
+        # Разрешённые эндпоинты без входа (включая скрытый PIN-вход)
+        allowed_endpoints = {
+            'yubikey_login', 'yubikey_instructions', 'yubikey_setup', 'yubikey_remove_key',
+            'secret_login', 'change_secret_pin',
+            'static', 'help_page', 'about_page', 'set_clipboard', 'shutdown'
+        }
+        ep = request.endpoint or ''
+
+        # Если модуль не инициализирован — выходим (UI покажет «Не защищено»)
+        if yubikey_auth is None:
+            return None
+
+        # Если защита выключена — пропускаем
+        if not getattr(yubikey_auth, 'enabled', False):
+            return None
+
+        # Если ключей нет — разрешаем только настройки/мастер и статику
+        try:
+            if len(yubikey_auth.get_keys()) == 0:
+                if ep in {'yubikey_setup', 'settings_page', 'static'}:
+                    return None
+                session.pop('yubikey_authenticated', None)
+                return redirect(url_for('yubikey_setup'))
+        except Exception:
+            pass
+
+        # Для всех остальных: если не аутентифицирован — отправляем на вход
+        if ep not in allowed_endpoints and not yubikey_auth.is_authenticated():
+            return redirect(url_for('yubikey_login'))
+    except Exception:
+        return None
 
 # --- NEW, ROBUST LOGIC FOR SECRET_KEY ---
 SECRET_KEY = None
