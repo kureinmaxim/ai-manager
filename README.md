@@ -322,7 +322,7 @@ python build_windows.py
 
 ```bash
 # Путь к компилятору Inno Setup (по умолчанию)
-"C:\Program Files (x86)\Inno Setup 6\ISCC.exe" AllManagerC.iss
+& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" AllManagerC.iss
 ```
 
 #### Шаг 4: Проверка инсталлятора
