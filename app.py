@@ -426,13 +426,13 @@ def enforce_authentication_dynamic():
                 if ep in {'yubikey_setup', 'settings_page', 'static'}:
                     return None
                 session.pop('yubikey_authenticated', None)
-                return redirect(url_for('yubikey_setup'))
+                return redirect('/yubikey/setup')
         except Exception:
             pass
 
         # Для всех остальных: если не аутентифицирован — отправляем на вход
         if ep not in allowed_endpoints and not yubikey_auth.is_authenticated():
-            return redirect(url_for('yubikey_login'))
+            return redirect('/yubikey/login')
     except Exception:
         return None
 
@@ -1205,7 +1205,7 @@ def add_service():
         services.append(new_service)
         save_ai_services(services)
         flash('AI-сервис успешно добавлен!', 'success')
-        return redirect(url_for('index'))
+        return redirect('/')
     
     # Для GET запроса
     # Загружаем схему для динамического формирования полей формы
@@ -1257,7 +1257,7 @@ def delete_service(service_id):
         service_id_int = int(service_id)
     except ValueError:
         flash('Неверный ID сервиса.', 'danger')
-        return redirect(url_for('index'))
+        return redirect('/')
     
     service_to_delete = next((s for s in services if s['id'] == service_id_int), None)
     
@@ -1276,7 +1276,7 @@ def delete_service(service_id):
     else:
         flash('AI-сервис не найден.', 'danger')
         
-    return redirect(url_for('index'))
+    return redirect('/')
 
 
 @app.route('/edit/<service_id>', methods=['GET', 'POST'])
@@ -1289,13 +1289,13 @@ def edit_service(service_id):
         service_id_int = int(service_id)
     except ValueError:
         flash('Неверный ID сервиса.', 'danger')
-        return redirect(url_for('index'))
+        return redirect('/')
     
     service = next((s for s in services if s['id'] == service_id_int), None)
     
     if service is None:
         flash('AI-сервис не найден.', 'danger')
-        return redirect(url_for('index'))
+        return redirect('/')
 
     # Дешифруем чувствительные данные для отображения в форме
     decrypted_service = copy.deepcopy(service)
@@ -1406,7 +1406,7 @@ def edit_service(service_id):
 
         save_ai_services(services)
         flash('AI-сервис успешно обновлен!', 'success')
-        return redirect(url_for('index'))
+        return redirect('/')
 
     # Для GET запроса
     # Загружаем схему для динамического формирования полей формы
@@ -1559,7 +1559,7 @@ def export_data():
     active_file = get_active_data_path()
     if not active_file or not os.path.exists(active_file):
         flash('Нет активного файла данных для экспорта.', 'warning')
-        return redirect(url_for('settings_page'))
+        return redirect('/settings')
     
     # Для PyWebView создаем копию файла в папке Downloads для удобного доступа
     try:
@@ -1581,9 +1581,9 @@ def export_data():
     )
     except Exception as e:
         flash(f'Ошибка при экспорте: {str(e)}', 'danger')
-        return redirect(url_for('settings_page'))
+        return redirect('/settings')
 
-@app.route('/data/export')
+@app.route('/data/export_key')
 @yubikey_auth.require_auth if yubikey_auth else (lambda f: f)
 def export_key():
     """Экспортирует SECRET_KEY в виде .env файла для скачивания."""
@@ -1607,9 +1607,9 @@ def export_key():
         )
     except Exception as e:
         flash(f'Ошибка при экспорте ключа: {str(e)}', 'danger')
-        return redirect(url_for('settings_page'))
+        return redirect('/settings')
 
-@app.route('/data/export')
+@app.route('/data/export_package')
 @yubikey_auth.require_auth if yubikey_auth else (lambda f: f)
 def export_package():
     """Создает ZIP архив с данными, ключом и загруженными файлами."""
@@ -1620,7 +1620,7 @@ def export_package():
         active_file = get_active_data_path()
         if not active_file or not os.path.exists(active_file):
             flash('Нет активного файла данных для экспорта.', 'warning')
-            return redirect(url_for('settings_page'))
+            return redirect('/settings')
         
         # Создаем ZIP файл в папке Downloads
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -1678,7 +1678,7 @@ def export_package():
         
     except Exception as e:
         flash(f'Ошибка при создании архива: {str(e)}', 'danger')
-        return redirect(url_for('settings_page'))
+        return redirect('/settings')
 
 @app.route('/data/import', methods=['POST'])
 def import_data():
@@ -1731,17 +1731,17 @@ def import_data():
                 # Удаляем файл, если он не может быть расшифрован
                 os.remove(file_path)
                 flash('Ошибка: файл не может быть расшифрован или поврежден. Возможно, он создан с другим ключом.', 'danger')
-                return redirect(url_for('settings_page'))
+                return redirect('/settings')
             
             # Обновляем конфигурацию для использования нового файла
             app.config['active_data_file'] = file_path
             save_app_config()
-            return redirect(url_for('settings_page'))
+            return redirect('/settings')
         else:
             flash('Неверный тип файла. Пожалуйста, выберите файл .enc', 'danger')
     except Exception as e:
         flash(f'Ошибка при импорте файла: {str(e)}', 'danger')
-    return redirect(url_for('settings_page'))
+    return redirect('/settings')
 
 @app.route('/data/import_external', methods=['POST'])
 def import_external_data():
@@ -1752,11 +1752,11 @@ def import_external_data():
         
         if not uploaded_file or not external_key:
             flash('Необходимо выбрать файл и указать внешний ключ шифрования.', 'danger')
-            return redirect(url_for('settings_page'))
+            return redirect('/settings')
             
         if not uploaded_file.filename.endswith('.enc'):
             flash('Неверный тип файла. Пожалуйста, выберите файл .enc', 'danger')
-            return redirect(url_for('settings_page'))
+            return redirect('/settings')
         
         # Проверяем формат ключа (должен быть в формате Fernet)
         try:
@@ -1765,7 +1765,7 @@ def import_external_data():
             test_fernet = Fernet(external_key.encode())
         except Exception:
             flash('Неверный формат ключа шифрования. Ключ должен быть действительным ключом Fernet.', 'danger')
-            return redirect(url_for('settings_page'))
+            return redirect('/settings')
         
         # Создаем временный файл для проверки
         import tempfile
@@ -1890,7 +1890,7 @@ def import_external_data():
     except Exception as e:
         flash(f'Ошибка при обработке файла: {str(e)}', 'danger')
     
-    return redirect(url_for('settings_page'))
+    return redirect('/settings')
 
 @app.route('/data/detach', methods=['POST'])
 def detach_data():
@@ -1900,7 +1900,7 @@ def detach_data():
         save_app_config()
         flash('Файл данных успешно откреплен.', 'info')
     
-    return redirect(url_for('index'))
+    return redirect('/')
 
 
 @app.route('/check_ip/<ip_address>')
@@ -1928,19 +1928,19 @@ def change_main_key():
         # Проверяем, что ключи совпадают
         if new_key != confirm_key:
             flash('Ошибка: ключи не совпадают.', 'danger')
-            return redirect(url_for('settings_page'))
+            return redirect('/settings')
         
         # Проверяем формат нового ключа
         if not new_key:
             flash('Ошибка: новый ключ не может быть пустым.', 'danger')
-            return redirect(url_for('settings_page'))
+            return redirect('/settings')
             
         try:
             # Проверяем, что новый ключ корректный для Fernet
             test_fernet = Fernet(new_key.encode())
         except Exception:
             flash('Ошибка: некорректный формат ключа. Ключ должен быть в формате Fernet.', 'danger')
-            return redirect(url_for('settings_page'))
+            return redirect('/settings')
         
         # Загружаем текущие данные с существующим ключом
         current_servers = load_ai_services()
@@ -2050,7 +2050,7 @@ def change_main_key():
     except Exception as e:
         flash(f'Ошибка при смене ключа: {str(e)}', 'danger')
     
-    return redirect(url_for('settings_page'))
+    return redirect('/settings')
 
 @app.route('/settings')
 @yubikey_auth.require_auth if yubikey_auth else (lambda f: f)
@@ -2062,18 +2062,18 @@ def verify_key_data():
         
         if not uploaded_file or not test_key:
             flash('Необходимо выбрать файл и указать ключ для проверки.', 'danger')
-            return redirect(url_for('settings_page'))
+            return redirect('/settings')
         
         if not uploaded_file.filename.endswith('.enc'):
             flash('Неверный тип файла. Выберите файл .enc', 'danger')
-            return redirect(url_for('settings_page'))
+            return redirect('/settings')
         
         # Проверяем формат ключа
         try:
             test_fernet = Fernet(test_key.encode())
         except Exception:
             flash('❌ Некорректный формат ключа Fernet.', 'danger')
-            return redirect(url_for('settings_page'))
+            return redirect('/settings')
         
         # Читаем файл
         file_content = uploaded_file.read()
@@ -2117,7 +2117,7 @@ def verify_key_data():
     except Exception as e:
         flash(f'Ошибка при обработке файла: {str(e)}', 'danger')
     
-    return redirect(url_for('settings_page'))
+    return redirect('/settings')
 
 @app.route('/settings')
 @yubikey_auth.require_auth if yubikey_auth else (lambda f: f)
@@ -2249,7 +2249,7 @@ def yubikey_login():
         try:
             if yubikey_auth and yubikey_auth.enabled and len(yubikey_auth.get_keys()) == 0:
                 flash('YubiKey ключи не настроены. Укажите Client ID и Secret Key в разделе «Настройки».', 'warning')
-                return redirect(url_for('settings_page'))
+                return redirect('/settings')
         except Exception:
             pass
         
@@ -2269,7 +2269,7 @@ def yubikey_login():
                         session['yubikey_authenticated'] = True
                         print("✅ YubiKey аутентификация успешна")
                         flash('Аутентификация YubiKey успешна!', 'success')
-                        return redirect(url_for('index'))
+                        return redirect('/')
                     else:
                         print(f"❌ YubiKey аутентификация неуспешна: {message}")
                         flash(f'Неверный OTP: {message}', 'danger')
@@ -2316,13 +2316,13 @@ def yubikey_login():
 def yubikey_logout():
     session.pop('yubikey_authenticated', None)
     flash('Вы вышли из системы', 'info')
-    return redirect(url_for('yubikey_login'))
+    return redirect('/yubikey/login')
 
 @app.route('/yubikey/setup', methods=['GET', 'POST'])
 def yubikey_setup():
     if not yubikey_auth:
         flash('YubiKey модуль не доступен', 'danger')
-        return redirect(url_for('index'))
+        return redirect('/')
         
     if request.method == 'POST':
         client_id = request.form.get('client_id', '').strip()
@@ -2375,7 +2375,7 @@ def yubikey_remove_key(key_index):
             flash(f'Ключ "{removed_key["name"]}" удален', 'success')
         else:
             flash('Ошибка при удалении ключа', 'danger')
-    return redirect(url_for('yubikey_setup'))
+    return redirect('/yubikey/setup')
 
 @app.route('/yubikey/instructions')
 def yubikey_instructions():
