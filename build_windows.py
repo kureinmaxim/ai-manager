@@ -4,6 +4,13 @@ import subprocess
 from pathlib import Path
 from datetime import datetime
 import sys
+import platform
+
+# Для корректной работы с кириллицей в Windows
+if platform.system() == 'Windows':
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
 PROJECT_ROOT = Path(__file__).parent.resolve()
 DIST_DIR = PROJECT_ROOT / 'dist'
